@@ -178,7 +178,7 @@ func dispatch(
             return layer("ax-press", ["elementId": .string(eid),
                                       "_retries": .int(pressResult.attempts - 1)])
         }
-        if case .double(let x) = params["x"], case .double(let y) = params["y"] {
+        if let x = params["x"]?.doubleValue, let y = params["y"]?.doubleValue {
             try await input.click(at: CGPoint(x: x, y: y), pid: pid)
             return layer("input-click")
         }
@@ -244,7 +244,7 @@ func dispatch(
         ])
 
     case "system.volume":
-        if case .double(let v) = params["value"] {
+        if let v = params["value"]?.doubleValue {
             await systemState.setVolume(Float(v))
             return layer("native-api", ["volume": .double(v)])
         }
@@ -256,7 +256,7 @@ func dispatch(
         return layer("native-api", ["muted": .bool(muted)])
 
     case "system.brightness":
-        if case .double(let v) = params["value"] {
+        if let v = params["value"]?.doubleValue {
             await systemState.setBrightness(Float(v))
             return layer("native-api", ["brightness": .double(v)])
         }
@@ -425,10 +425,10 @@ func dispatch(
         guard let pid = await lifecycle.pid(for: bid) else {
             throw RPCError.appNotRunning(bid)
         }
-        guard case .double(let fx) = params["fromX"],
-              case .double(let fy) = params["fromY"],
-              case .double(let tx) = params["toX"],
-              case .double(let ty) = params["toY"]
+        guard let fx = params["fromX"]?.doubleValue,
+              let fy = params["fromY"]?.doubleValue,
+              let tx = params["toX"]?.doubleValue,
+              let ty = params["toY"]?.doubleValue
         else { throw RPCError.operationFailed("drag requires fromX/fromY/toX/toY") }
         let steps = params["steps"]?.intValue ?? 20
         try await input.drag(from: CGPoint(x: fx, y: fy), to: CGPoint(x: tx, y: ty),
@@ -606,7 +606,7 @@ func dispatch(
     case "calendar.create-event":
         try await eventKit.requestCalendarAccess()
         guard case .string(let title)  = params["title"],
-              case .double(let startTS) = params["startTimestamp"],
+              let startTS = params["startTimestamp"]?.doubleValue,
               case .double(let endTS)   = params["endTimestamp"]
         else { throw RPCError.operationFailed("calendar.create-event requires title+startTimestamp+endTimestamp") }
         let event = try await eventKit.createEvent(
@@ -741,22 +741,22 @@ func dispatch(
 
     case "window.move":
         guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
-              case .double(let x) = params["x"], case .double(let y) = params["y"]
+              let x = params["x"]?.doubleValue, let y = params["y"]?.doubleValue
         else { throw RPCError.operationFailed("window.move requires windowID+x+y") }
         await window.move(windowID: wid, x: x, y: y)
         return layer("window")
 
     case "window.resize":
         guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
-              case .double(let w) = params["width"], case .double(let h) = params["height"]
+              let w = params["width"]?.doubleValue, let h = params["height"]?.doubleValue
         else { throw RPCError.operationFailed("window.resize requires windowID+width+height") }
         await window.resize(windowID: wid, width: w, height: h)
         return layer("window")
 
     case "window.set-bounds":
         guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
-              case .double(let x) = params["x"], case .double(let y) = params["y"],
-              case .double(let w) = params["width"], case .double(let h) = params["height"]
+              let x = params["x"]?.doubleValue, let y = params["y"]?.doubleValue,
+              let w = params["width"]?.doubleValue, let h = params["height"]?.doubleValue
         else { throw RPCError.operationFailed("window.set-bounds requires windowID+x+y+width+height") }
         await window.setBounds(windowID: wid, x: x, y: y, w: w, h: h)
         return layer("window")
@@ -925,7 +925,7 @@ func dispatch(
         ])
 
     case "screen.set-brightness":
-        guard case .double(let value) = params["value"] else {
+        guard let value = params["value"]?.doubleValue else {
             throw RPCError.operationFailed("screen.set-brightness requires value 0.0-1.0")
         }
         let idx = params["screenIndex"]?.intValue ?? 0
