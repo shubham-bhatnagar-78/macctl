@@ -23,6 +23,7 @@ struct MacCtl: ParsableCommand {
             ClipboardCommand.self,
             NetworkCommand.self,
             DefaultsCommand.self,
+            FileCommand.self,
         ],
     )
 }
