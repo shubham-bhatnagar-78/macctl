@@ -91,8 +91,17 @@ public actor AXActor {
 
     // MARK: - Element enumeration
 
-    /// List interactive elements, return as AXElementInfo (Sendable — no AXUIElement exposed).
-    public func listElements(in app: AXUIElement, maxDepth: Int = 6) -> [AXElementInfo] {
+    /// List interactive elements in the focused window (faster than full app scan).
+    /// Falls back to full app scan if no focused window.
+    public func listElements(in app: AXUIElement, maxDepth: Int = 5) -> [AXElementInfo] {
+        // Prefer focused window — dramatically reduces tree size on multi-window apps
+        var focusedRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
+           let focused = focusedRef {
+            var results: [AXElementInfo] = []
+            enumerateRecursive(element: focused as! AXUIElement, depth: maxDepth, results: &results)
+            return results
+        }
         var results: [AXElementInfo] = []
         enumerateRecursive(element: app, depth: maxDepth, results: &results)
         return results
