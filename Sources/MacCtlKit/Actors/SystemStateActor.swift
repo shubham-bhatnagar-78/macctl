@@ -1,7 +1,6 @@
-import AudioToolbox   // kAudioHardwareServiceDeviceProperty_VirtualMasterVolume
+import AudioToolbox   // kAudioHardwareServiceDeviceProperty_VirtualMainVolume
 import CoreAudio
 import CoreWLAN
-import IOBluetooth
 import IOKit
 import Foundation
 import Logging
@@ -126,8 +125,11 @@ public actor SystemStateActor {
     // kBluetoothHCIPowerStateOn = 1, kBluetoothHCIPowerStateOff = 0
 
     public func bluetoothEnabled() -> Bool {
-        // kBluetoothHCIPowerStateOn = 1 (Bluetooth.h C constant, rawValue comparison)
-        (IOBluetoothHostController.default()?.powerState.rawValue ?? 0) == 1
+        // Read from /Library/Preferences/com.apple.Bluetooth.plist
+        // Avoids IOBluetoothHostController which requires main thread + Bluetooth entitlement.
+        // ControllerPowerState: 1 = on, 0 = off
+        let prefs = UserDefaults(suiteName: "/Library/Preferences/com.apple.Bluetooth")
+        return (prefs?.integer(forKey: "ControllerPowerState") ?? 0) == 1
     }
 
     public func setBluetoothEnabled(_ enabled: Bool) {
