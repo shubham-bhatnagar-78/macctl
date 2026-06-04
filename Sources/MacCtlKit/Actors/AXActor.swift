@@ -102,42 +102,48 @@ public actor AXActor {
 
     // MARK: - Element enumeration
 
-    /// List interactive elements in the focused window (faster than full app scan).
+    /// List interactive elements in the focused window. Max 100 elements by default.
     /// Falls back to full app scan if no focused window.
-    public func listElements(in app: AXUIElement, maxDepth: Int = 5) -> [AXElementInfo] {
-        // Prefer focused window — dramatically reduces tree size on multi-window apps
+    public func listElements(in app: AXUIElement, maxDepth: Int = 5, maxElements: Int = 100) -> [AXElementInfo] {
+        let root: AXUIElement
         var focusedRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
            let focused = focusedRef {
-            var results: [AXElementInfo] = []
-            enumerateRecursive(element: focused as! AXUIElement, depth: maxDepth, results: &results)
-            return results
+            root = focused as! AXUIElement
+        } else {
+            root = app
         }
         var results: [AXElementInfo] = []
-        enumerateRecursive(element: app, depth: maxDepth, results: &results)
+        enumerateRecursive(element: root, depth: maxDepth, results: &results, maxElements: maxElements)
         return results
     }
 
+    // Roles that agents can meaningfully interact with.
+    // AXStaticText excluded — it's display-only content, not actionable.
+    // AXImage excluded — usually decorative.
     private let interactiveRoles: Set<String> = [
         "AXButton", "AXTextField", "AXTextArea", "AXCheckBox", "AXRadioButton",
-        "AXLink", "AXPopUpButton", "AXMenuItem", "AXSlider", "AXComboBox",
-        "AXSearchField", "AXStaticText", "AXImage",
+        "AXLink", "AXPopUpButton", "AXMenuItem", "AXMenuBarItem", "AXSlider",
+        "AXComboBox", "AXSearchField", "AXDisclosureTriangle", "AXIncrementor",
+        "AXDateField", "AXTimeField", "AXColorWell",
     ]
 
-    private func enumerateRecursive(element: AXUIElement, depth: Int, results: inout [AXElementInfo]) {
-        guard depth > 0 else { return }
+    private func enumerateRecursive(element: AXUIElement, depth: Int,
+                                    results: inout [AXElementInfo], maxElements: Int = 100) {
+        guard depth > 0, results.count < maxElements else { return }
         let role = stringValue(element, attribute: kAXRoleAttribute) ?? ""
         let title = stringValue(element, attribute: kAXTitleAttribute)
             ?? stringValue(element, attribute: kAXDescriptionAttribute)
-            ?? stringValue(element, attribute: kAXValueAttribute)
             ?? ""
+        // Only include interactive roles with non-empty titles
         if interactiveRoles.contains(role) && !title.isEmpty {
             let id = nextID()
             elementCache[id] = element
             results.append(AXElementInfo(id: id, role: role, title: title, frame: frameOf(element)))
         }
         for child in childrenOf(element) {
-            enumerateRecursive(element: child, depth: depth - 1, results: &results)
+            guard results.count < maxElements else { break }
+            enumerateRecursive(element: child, depth: depth - 1, results: &results, maxElements: maxElements)
         }
     }
 
@@ -149,6 +155,7 @@ public actor AXActor {
     }
 
     public func element(for id: String) -> AXUIElement? { elementCache[id] }
+    public func elementExists(id: String) -> Bool { elementCache[id] != nil }
     public func clearCache() { elementCache.removeAll(); idCounter = 0 }
 
     // MARK: - Actions (by element ID — safe cross-actor boundary)
