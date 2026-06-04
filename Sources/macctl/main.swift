@@ -25,6 +25,7 @@ struct MacCtl: ParsableCommand {
             DefaultsCommand.self,
             FileCommand.self,
             WatchCommand.self,
+            NotesCommand.self,
             CalendarCommand.self,
             RemindersCommand.self,
             ContactsCommand.self,
