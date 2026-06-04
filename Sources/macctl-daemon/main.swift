@@ -45,11 +45,9 @@ let server = SocketServer { data in
             sessionID: sessionID
         )
         let durationMs = Date().timeIntervalSince(start) * 1000
-        let layer = resultData["layer"]?.stringValue ?? "unknown"
+        let layer = resultData["_layer"]?.stringValue ?? "unknown"
         var cleanData = resultData
-        cleanData.removeValue(forKey: "layer")
-        cleanData.removeValue(forKey: "sessionID")
-        cleanData.removeValue(forKey: "daemonVersion")
+        cleanData.removeValue(forKey: "_layer")
         let payload: [String: JSONValue] = [
             "jsonrpc": .string("2.0"),
             "id": .string(request.id),
