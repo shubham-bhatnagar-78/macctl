@@ -174,6 +174,24 @@ func dispatch(
         }
         throw RPCError.operationFailed("click requires 'query', 'elementId', or 'x'+'y'")
 
+    // MARK: - scroll
+
+    case "scroll":
+        guard case .string(let bid) = params["bundleID"] else {
+            throw RPCError.operationFailed("scroll requires bundleID")
+        }
+        guard let pid = await lifecycle.pid(for: bid) else {
+            throw RPCError.appNotRunning(bid)
+        }
+        let dirStr = params["direction"]?.stringValue ?? "down"
+        let direction: ScrollDirection = switch dirStr {
+        case "up": .up; case "down": .down; case "left": .left; case "right": .right
+        default: .down
+        }
+        let amount = params["amount"]?.intValue ?? 3
+        try await input.scroll(direction: direction, amount: amount, pid: pid)
+        return layer("input-scroll", ["direction": .string(dirStr), "amount": .int(amount)])
+
     // MARK: - see
 
     case "see":

@@ -24,7 +24,10 @@ struct ClipboardCommand: ParsableCommand {
             if let h = html       { params["html"]  = .string(h) }
             else if let t = text  { params["text"]  = .string(t) }
             else if let f = file  { params["files"] = .array([.string(f)]) }
-            else { throw ValidationError("Provide --text, --html, or --file") }
+            else {
+                print(#"{"success":false,"error":{"code":5,"message":"Provide --text, --html, or --file"}}"#)
+                throw ExitCode(5)
+            }
             try rpc(method: "clipboard.write", params: params)
         }
     }
