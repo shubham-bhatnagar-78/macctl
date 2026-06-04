@@ -1,0 +1,299 @@
+# macctl
+
+<div align="center">
+
+**Ultra-fast, ultra-reliable macOS automation CLI**  
+Built for agentic LLMs. Works standalone too.
+
+[![Swift](https://img.shields.io/badge/Swift-6.0-FA7343?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-35%20tools-6366f1?style=flat-square)](https://modelcontextprotocol.io)
+[![CLI](https://img.shields.io/badge/CLI-25%20commands-10b981?style=flat-square)]()
+[![Actors](https://img.shields.io/badge/Swift%20actors-21-f59e0b?style=flat-square)]()
+
+[**Quick Start**](#quick-start) · [**MCP Setup**](#mcp-server) · [**Commands**](#commands) · [**Architecture**](#architecture)
+
+</div>
+
+---
+
+## What is macctl?
+
+`macctl` is a production-grade macOS automation daemon with sub-5ms latency for most operations. It exposes the full macOS API surface — UI automation, system state, files, apps, windows, processes, calendar, contacts — through a unified CLI and a 35-tool MCP server that any LLM can drive.
+
+```bash
+# Click a button in Safari
+macctl click "New Tab" --app com.apple.Safari
+
+# Type into any app instantly (0.5ms via AX setValue)
+macctl type "Hello, world!" --app com.apple.TextEdit
+
+# Get all running apps
+macctl app list
+
+# Watch file changes in real-time
+macctl watch file ~/Downloads
+
+# Query calendar events
+macctl calendar events
+
+# Search files with Spotlight
+macctl spotlight search "invoice 2024"
+
+# Move a window to left half of screen
+macctl window tile-left --id 12345
+```
+
+---
+
+## Performance
+
+All timings are **daemon-internal latency** (not including process spawn overhead). Daemon starts once at login; subsequent calls are socket IPC (~0.5ms overhead).
+
+| Operation | P50 | P95 | How |
+|---|---|---|---|
+| Keyboard shortcut | **2.2ms** | 2.3ms | BuiltinShortcutRegistry O(1) |
+| Type text (any length) | **0.5ms** | 0.8ms | AX `setValue` |
+| App list | **0.4ms** | 4ms | NSWorkspace index |
+| System status (vol/WiFi/BT) | **1.4ms** | 4ms | CoreAudio/CoreWLAN/IOKit |
+| File read/write | **0.1–0.8ms** | 1.5ms | FileManager |
+| See UI elements | **11ms** | 20ms | AX focused window |
+| Screenshot | **60ms** | 110ms | ScreenCaptureKit warm |
+| Calendar events | **28ms** | 40ms | EventKit |
+
+---
+
+## Quick Start
+
+### Install
+
+```bash
+# Clone and build
+git clone https://github.com/YOUR_USERNAME/macctl
+cd macctl
+swift build -c release
+
+# Install binaries
+sudo cp .build/release/macctl /usr/local/bin/
+sudo cp .build/release/macctl-daemon /usr/local/bin/
+sudo cp .build/release/macctl-mcp /usr/local/bin/
+```
+
+### Start the daemon
+
+```bash
+# Install as launchd service (auto-starts on login)
+launchctl load ~/Library/LaunchAgents/com.macctl.daemon.plist
+
+# Or run manually
+macctl-daemon &
+```
+
+### Grant permissions
+
+First run of UI automation / screenshots will prompt for:
+- **Accessibility** — for click, type, see
+- **Screen Recording** — for screenshots
+- **Contacts / Calendar / Reminders** — for data commands
+
+---
+
+## MCP Server
+
+Wire `macctl-mcp` into any MCP-compatible LLM client. Claude Code, Cursor, Codex, and Gemini CLI are supported out of the box.
+
+### Claude Code
+
+Add to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "macctl": {
+      "command": "/usr/local/bin/macctl-mcp"
+    }
+  }
+}
+```
+
+Restart Claude Code. All 35 `macctl_*` tools appear automatically.
+
+### Ollama / Local LLMs
+
+```bash
+# Bridge via mcphost
+npm install -g @modelcontextprotocol/mcphost
+mcphost --model ollama:llama3.3 --mcp-config ~/.mcphost/config.json
+```
+
+### Available MCP Tools
+
+| Category | Tools |
+|---|---|
+| UI Automation | `macctl_click`, `macctl_type`, `macctl_key`, `macctl_see`, `macctl_screenshot`, `macctl_scroll` |
+| App Lifecycle | `macctl_app_launch`, `macctl_app_quit`, `macctl_app_list` |
+| Shell | `macctl_shell` |
+| System State | `macctl_system_status`, `macctl_system_volume` |
+| Files | `macctl_file_read`, `macctl_file_write`, `macctl_file_list`, `macctl_file_stat` |
+| Clipboard | `macctl_clipboard_read`, `macctl_clipboard_write` |
+| Calendar | `macctl_calendar_events`, `macctl_calendar_create` |
+| Reminders | `macctl_reminders_list`, `macctl_reminders_create` |
+| Contacts | `macctl_contacts_search` |
+| Windows | `macctl_window_list`, `macctl_window_set_bounds`, `macctl_window_tile`, `macctl_window_fullscreen` |
+| Processes | `macctl_process_list`, `macctl_process_kill` |
+| Search | `macctl_spotlight_search` |
+| Display | `macctl_screen_list` |
+| Input | `macctl_input_source_list`, `macctl_input_source_select` |
+| Defaults | `macctl_defaults_read`, `macctl_defaults_write` |
+| Network | `macctl_network_status` (resolve via `macctl_network_resolve`) |
+
+---
+
+## Commands
+
+```
+macctl <command> [options]
+
+UI Automation:
+  click      Click a UI element by label or element ID
+  type       Type text (AX setValue → paste → CGEvent fallback)
+  key        Send keyboard shortcut (2.2ms, O(1) builtin registry)
+  see        Enumerate interactive UI elements with IDs
+  scroll     Scroll in an app window
+  drag       Drag between coordinates
+  screenshot Capture screen or app window to PNG
+
+App Management:
+  app        launch / quit / hide / show / list
+
+Shell:
+  shell      Execute shell command via /bin/zsh
+
+System State:
+  system     volume / brightness / wifi / bluetooth / status
+  power      caffeinate / lock / sleep / status
+  clipboard  read / write / clear (text, HTML, files)
+  network    status / resolve
+  defaults   read / write / delete (NSUserDefaults)
+  screen     list displays, set brightness
+  input-source  current / list / select keyboard layout
+
+File Operations:
+  file       read / write / copy / move / delete / list / stat
+             mkdir / tag / reveal / open / resolve-icloud
+
+Data:
+  calendar   list / events / create / delete (EventKit)
+  reminders  lists / list / create / complete (EventKit)
+  contacts   search / get / create (ContactsKit)
+
+Window Management:
+  window     list / move / resize / set-bounds / focus
+             minimize / fullscreen / tile-left / tile-right
+
+Process Management:
+  process    list (all processes) / kill / is-running
+  spotlight  search / find (NSMetadataQuery)
+
+Streaming:
+  watch      file <path>   — real-time file change events
+             apps          — app launch/quit/activate events
+
+Misc:
+  install    Install daemon as launchd service
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Clients                           │
+│  macctl CLI   macctl-mcp (MCP)   Python/Node SDK   │
+└──────────┬──────────────┬───────────────┬──────────┘
+           │              │               │
+           └──────────────┴───────────────┘
+                          │ Unix socket JSON-RPC 2.0
+                          ▼
+           ┌──────────────────────────────┐
+           │        macctl-daemon         │
+           │  ┌─────────────────────────┐ │
+           │  │   Middleware Pipeline   │ │
+           │  │  Logging → DryRun       │ │
+           │  └──────────┬──────────────┘ │
+           │             │                │
+           │  ┌──────────▼──────────────┐ │
+           │  │   Operation Router      │ │
+           │  │  Keyboard → AX → Paste  │ │
+           │  └──────────┬──────────────┘ │
+           │             │                │
+           │  ┌──────────▼─────────────────────────────────┐
+           │  │              Swift 6 Actors                │
+           │  │                                            │
+           │  │  AXActor     InputActor    KeyboardActor   │
+           │  │  WindowActor CaptureActor  SystemStateActor│
+           │  │  FileActor   EventKitActor ContactsActor   │
+           │  │  ProcessActor SpotlightActor ShellActor    │
+           │  │  NetworkActor DefaultsActor PowerActor     │
+           │  │  ClipboardActor ScreenActor InputSourceActor│
+           │  └────────────────────────────────────────────┘
+           └──────────────────────────────┘
+```
+
+### Key Design Decisions
+
+**Daemon architecture** — process spawns once at login, all commands are socket IPC (~0.5ms). Eliminates the 80–150ms per-invocation startup cost of tools like Peekaboo.
+
+**Keyboard-first resolution** — 59 Apple apps have compile-time shortcut registries. `macctl key new-tab --app Safari` resolves in O(1) at 2.2ms, no AX scanning needed.
+
+**Three-layer operation routing** — every operation tries the fastest reliable path: (1) BuiltinShortcutRegistry, (2) direct native API (CoreAudio/IOKit/EventKit), (3) AX/CGEvent.
+
+**Swift 6 strict concurrency** — all actors enforce data-race freedom at compile time. No `@unchecked Sendable` except at DispatchQueue bridges for blocking C APIs.
+
+**Real timeouts on blocking AX calls** — `AXUIElementSetAttributeValue` is synchronous IPC. Wrapped with `DispatchSemaphore` (not task groups, which can't cancel synchronous calls) — falls through to paste on timeout.
+
+---
+
+## Apple App Coverage
+
+BuiltinShortcutRegistry covers all 59 Apple-shipped apps. O(1) dictionary lookup, compile-time only, no runtime AX scanning needed.
+
+`Finder` `Safari` `Mail` `Messages` `FaceTime` `Calendar` `Reminders` `Notes` `Contacts` `Maps` `Weather` `News` `Stocks` `Home` `Clock` `Freeform` `Shortcuts` `Photos` `Music` `TV` `Podcasts` `Books` `VoiceMemos` `FaceTime` `Preview` `QuickTime` `TextEdit` `Stickies` `Dictionary` `FontBook` `Calculator` `PhotoBooth` `FindMy` `Terminal` `Xcode` `ScriptEditor` `Automator` `ActivityMonitor` `Console` `DiskUtility` `AudioMIDISetup` `ColorSyncUtility` `DirectoryUtility` `AirPortUtility` `WirelessDiagnostics` `KeychainAccess` `DigitalColorMeter` `ImageCapture` `MigrationAssistant` `SystemInformation` `BluetoothFileExchange` `ScreenSharing` `Pages` `Numbers` `Keynote` `iMovie` `GarageBand` `PhotoBooth` `iPhone Mirroring`
+
+---
+
+## Requirements
+
+- macOS 13.0+ (Ventura)
+- Swift 6.0+
+- Xcode 15+ or Swift toolchain
+
+---
+
+## Building from Source
+
+```bash
+git clone https://github.com/YOUR_USERNAME/macctl
+cd macctl
+swift build               # debug
+swift build -c release    # release (smaller, faster)
+swift test                # run test suite
+```
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Built with ❤️ on macOS · Powered by Swift 6 strict concurrency
+
+*If macctl saves you time, consider giving it a ⭐*
+
+</div>
