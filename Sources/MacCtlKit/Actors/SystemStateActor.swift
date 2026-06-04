@@ -7,6 +7,9 @@ import Logging
 
 public actor SystemStateActor {
     private let logger = Logger(label: "macctl.system-state")
+    // Cache CWWiFiClient — calling shared() repeatedly has occasional 50ms latency spike
+    private let wifiClient = CWWiFiClient.shared()
+
     public init() {}
 
     // MARK: - Volume (CoreAudio + AudioToolbox — public API)
@@ -78,8 +81,8 @@ public actor SystemStateActor {
     public func brightness() -> Float {
         for service in brightnessServices() {
             var value: Float = 0
-            if IODisplayGetFloatParameter(service, 0, kIODisplayBrightnessKey as CFString, &value) == kIOReturnSuccess,
-               value > 0 {
+            // Return first service that responds successfully (even if value is 0)
+            if IODisplayGetFloatParameter(service, 0, kIODisplayBrightnessKey as CFString, &value) == kIOReturnSuccess {
                 IOObjectRelease(service)
                 return value
             }
@@ -114,18 +117,18 @@ public actor SystemStateActor {
     // MARK: - WiFi (CoreWLAN — public API)
 
     public func wifiEnabled() -> Bool {
-        CWWiFiClient.shared().interface()?.powerOn() ?? false
+        wifiClient.interface()?.powerOn() ?? false
     }
 
     public func setWifiEnabled(_ enabled: Bool) throws {
-        guard let iface = CWWiFiClient.shared().interface() else {
+        guard let iface = wifiClient.interface() else {
             throw SystemStateError.wifiInterfaceNotFound
         }
         try iface.setPower(enabled)
     }
 
     public func wifiSSID() -> String? {
-        CWWiFiClient.shared().interface()?.ssid()
+        wifiClient.interface()?.ssid()
     }
 
     // MARK: - Bluetooth
