@@ -12,6 +12,7 @@ struct MacCtl: ParsableCommand {
             TypeCommand.self,
             KeyCommand.self,
             SeeCommand.self,
+            ScrollCommand.self,
             AppCommand.self,
             ScreenshotCommand.self,
             InstallCommand.self,
@@ -20,7 +21,7 @@ struct MacCtl: ParsableCommand {
             ClipboardCommand.self,
             NetworkCommand.self,
             DefaultsCommand.self,
-        ]
+        ],
     )
 }
 
