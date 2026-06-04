@@ -19,6 +19,8 @@ let networkActor     = NetworkActor()
 let defaultsActor    = DefaultsActor()
 let shellActor       = ShellActor()
 let fileActor        = FileActor()
+let eventKitActor    = EventKitActor()
+let contactsActor    = ContactsActor()
 
 await daemonLifecycle.start()
 
@@ -47,6 +49,7 @@ let middlewarePipeline = buildMiddlewareChain(
             systemState: systemStateActor, power: powerActor,
             clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
             shell: shellActor, file: fileActor,
+            eventKit: eventKitActor, contacts: contactsActor,
             sessionID: sessionID
         )
     }

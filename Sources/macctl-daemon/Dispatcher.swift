@@ -19,6 +19,8 @@ func dispatch(
     defaults: DefaultsActor,
     shell: ShellActor,
     file: FileActor,
+    eventKit: EventKitActor,
+    contacts: ContactsActor,
     sessionID: String
 ) async throws -> [String: JSONValue] {
 
@@ -554,6 +556,164 @@ func dispatch(
         let timeoutSecs = params["timeout"]?.intValue ?? 30
         let resolved = try await file.resolveICloud(path: path, timeoutSecs: timeoutSecs)
         return layer("icloud", ["resolvedPath": .string(resolved)])
+
+    // MARK: - calendar.*
+
+    case "calendar.list-calendars":
+        try await eventKit.requestCalendarAccess()
+        let cals = await eventKit.listCalendars()
+        return layer("framework-api", [
+            "calendars": .array(cals.map { c in
+                .object(["id":.string(c.id),"title":.string(c.title),"type":.string(c.type),"color":.string(c.color)])
+            }),
+            "count": .int(cals.count),
+        ])
+
+    case "calendar.fetch-events":
+        try await eventKit.requestCalendarAccess()
+        let startTS = params["startTimestamp"]?.doubleValue ?? Date().timeIntervalSince1970
+        let endTS   = params["endTimestamp"]?.doubleValue
+                      ?? Date().addingTimeInterval(7 * 86400).timeIntervalSince1970
+        let calIDs  = params["calendarIDs"].flatMap { if case .array(let a) = $0 { return a.compactMap { $0.stringValue } }; return nil }
+        let events  = await eventKit.fetchEvents(
+            from: Date(timeIntervalSince1970: startTS),
+            to:   Date(timeIntervalSince1970: endTS),
+            calendarIDs: calIDs)
+        let fmt = ISO8601DateFormatter()
+        return layer("framework-api", [
+            "events": .array(events.map { e in
+                var obj: [String: JSONValue] = [
+                    "id":.string(e.id),"title":.string(e.title),
+                    "startDate":.string(fmt.string(from: e.startDate)),
+                    "endDate":.string(fmt.string(from: e.endDate)),
+                    "calendarTitle":.string(e.calendarTitle),
+                    "isAllDay":.bool(e.isAllDay),
+                ]
+                if let n = e.notes    { obj["notes"]    = .string(n) }
+                if let l = e.location { obj["location"] = .string(l) }
+                return .object(obj)
+            }),
+            "count": .int(events.count),
+        ])
+
+    case "calendar.create-event":
+        try await eventKit.requestCalendarAccess()
+        guard case .string(let title)  = params["title"],
+              case .double(let startTS) = params["startTimestamp"],
+              case .double(let endTS)   = params["endTimestamp"]
+        else { throw RPCError.operationFailed("calendar.create-event requires title+startTimestamp+endTimestamp") }
+        let event = try await eventKit.createEvent(
+            title:      title,
+            start:      Date(timeIntervalSince1970: startTS),
+            end:        Date(timeIntervalSince1970: endTS),
+            calendarID: params["calendarID"]?.stringValue,
+            notes:      params["notes"]?.stringValue,
+            isAllDay:   params["isAllDay"] == .bool(true),
+            location:   params["location"]?.stringValue)
+        return layer("framework-api", ["id":.string(event.id),"title":.string(event.title)])
+
+    case "calendar.delete-event":
+        try await eventKit.requestCalendarAccess()
+        guard case .string(let id) = params["id"] else {
+            throw RPCError.operationFailed("calendar.delete-event requires id")
+        }
+        try await eventKit.deleteEvent(id: id)
+        return layer("framework-api")
+
+    // MARK: - reminder.*
+
+    case "reminder.list-lists":
+        try await eventKit.requestRemindersAccess()
+        let lists = await eventKit.listReminderLists()
+        return layer("framework-api", [
+            "lists": .array(lists.map { .object(["id":.string($0.id),"title":.string($0.title)]) }),
+            "count": .int(lists.count),
+        ])
+
+    case "reminder.fetch":
+        try await eventKit.requestRemindersAccess()
+        let completed = params["completed"]?.boolValue
+        let listIDs   = params["listIDs"].flatMap { if case .array(let a) = $0 { return a.compactMap { $0.stringValue } }; return nil }
+        let reminders = try await eventKit.fetchReminders(listIDs: listIDs, completed: completed)
+        return layer("framework-api", [
+            "reminders": .array(reminders.map { r in
+                var obj: [String: JSONValue] = [
+                    "id":.string(r.id),"title":.string(r.title),
+                    "isCompleted":.bool(r.isCompleted),"listTitle":.string(r.listTitle),
+                ]
+                if let d = r.dueDate { obj["dueDate"] = .string(ISO8601DateFormatter().string(from: d)) }
+                if let n = r.notes   { obj["notes"]   = .string(n) }
+                return .object(obj)
+            }),
+            "count": .int(reminders.count),
+        ])
+
+    case "reminder.create":
+        try await eventKit.requestRemindersAccess()
+        guard case .string(let title) = params["title"] else {
+            throw RPCError.operationFailed("reminder.create requires title")
+        }
+        let dueDate = params["dueTimestamp"]?.doubleValue.map { Date(timeIntervalSince1970: $0) }
+        let reminder = try await eventKit.createReminder(
+            title: title, dueDate: dueDate,
+            listID: params["listID"]?.stringValue,
+            notes: params["notes"]?.stringValue,
+            priority: params["priority"]?.intValue ?? 0)
+        return layer("framework-api", ["id":.string(reminder.id),"title":.string(reminder.title)])
+
+    case "reminder.complete":
+        try await eventKit.requestRemindersAccess()
+        guard case .string(let id) = params["id"] else {
+            throw RPCError.operationFailed("reminder.complete requires id")
+        }
+        let r = try await eventKit.completeReminder(id: id)
+        return layer("framework-api", ["id":.string(r.id),"isCompleted":.bool(r.isCompleted)])
+
+    // MARK: - contact.*
+
+    case "contact.search":
+        try await contacts.requestAccess()
+        guard case .string(let query) = params["query"] else {
+            throw RPCError.operationFailed("contact.search requires query")
+        }
+        let limit   = params["limit"]?.intValue ?? 25
+        let results = try await contacts.search(query: query, limit: limit)
+        return layer("framework-api", [
+            "contacts": .array(results.map { c in
+                .object(["id":.string(c.id),"fullName":.string(c.fullName),
+                         "givenName":.string(c.givenName),"familyName":.string(c.familyName),
+                         "emails":.array(c.emailAddresses.map { .string($0) }),
+                         "phones":.array(c.phoneNumbers.map { .string($0) }),
+                         "organization":.string(c.organizationName)])
+            }),
+            "count": .int(results.count),
+        ])
+
+    case "contact.get":
+        try await contacts.requestAccess()
+        guard case .string(let id) = params["id"] else {
+            throw RPCError.operationFailed("contact.get requires id")
+        }
+        let c = try await contacts.get(id: id)
+        return layer("framework-api", [
+            "id":.string(c.id),"fullName":.string(c.fullName),
+            "givenName":.string(c.givenName),"familyName":.string(c.familyName),
+            "emails":.array(c.emailAddresses.map { .string($0) }),
+            "phones":.array(c.phoneNumbers.map { .string($0) }),
+            "organization":.string(c.organizationName),"jobTitle":.string(c.jobTitle),
+        ])
+
+    case "contact.create":
+        try await contacts.requestAccess()
+        guard case .string(let given)  = params["givenName"],
+              case .string(let family) = params["familyName"]
+        else { throw RPCError.operationFailed("contact.create requires givenName+familyName") }
+        let c = try await contacts.create(
+            givenName: given, familyName: family,
+            email: params["email"]?.stringValue,
+            phone: params["phone"]?.stringValue,
+            organization: params["organization"]?.stringValue)
+        return layer("framework-api", ["id":.string(c.id),"fullName":.string(c.fullName)])
 
     default:
         throw RPCError(code: 5, message: "Unknown method: \(method)")
