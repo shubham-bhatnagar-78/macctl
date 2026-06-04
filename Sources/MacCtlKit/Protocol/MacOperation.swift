@@ -26,7 +26,11 @@ public enum ScreenshotMode: String, Sendable, Codable {
 public enum ClipboardContent: Sendable {
     case text(String)
     case html(String)
-    case fileURL(URL)
+    case rtf(Data)
+    case image(Data)   // PNG bytes
+    case files([URL])
+    case color(Double, Double, Double, Double)  // RGBA 0-1
+    case empty
 }
 
 // MARK: - MacOperation
