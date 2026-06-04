@@ -24,9 +24,8 @@ let appleApps = [
 await lifecycleActor.preResolveBundleURLs(for: appleApps)
 
 let sessionID = daemonLifecycle.sessionID
-let server = SocketServer()
 
-await server.setMessageHandler { data in
+let server = SocketServer { data in
     guard let request = try? JSONDecoder().decode(RPCRequest.self, from: data) else {
         let errPayload: [String: JSONValue] = [
             "jsonrpc": .string("2.0"), "id": .string("?"),
@@ -47,15 +46,15 @@ await server.setMessageHandler { data in
         )
         let durationMs = Date().timeIntervalSince(start) * 1000
         let layer = resultData["layer"]?.stringValue ?? "unknown"
-        var data = resultData
-        data.removeValue(forKey: "layer")
-        data.removeValue(forKey: "sessionID")
-        data.removeValue(forKey: "daemonVersion")
+        var cleanData = resultData
+        cleanData.removeValue(forKey: "layer")
+        cleanData.removeValue(forKey: "sessionID")
+        cleanData.removeValue(forKey: "daemonVersion")
         let payload: [String: JSONValue] = [
             "jsonrpc": .string("2.0"),
             "id": .string(request.id),
             "success": .bool(true),
-            "data": .object(data),
+            "data": .object(cleanData),
             "meta": .object([
                 "durationMs": .double(durationMs),
                 "layer": .string(layer),
@@ -87,8 +86,8 @@ await server.setMessageHandler { data in
     }
 }
 
-try await server.start()
+try server.start()
 logger.info("macctl-daemon ready. Socket: \(SocketServer.defaultSocketPath)")
 
-// Run forever
-try await Task.sleep(for: .seconds(Double.infinity))
+// Keep alive until SIGTERM
+try await Task.sleep(nanoseconds: .max)
