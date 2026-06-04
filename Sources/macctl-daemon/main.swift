@@ -17,6 +17,7 @@ let powerActor       = PowerActor()
 let clipboardActor   = ClipboardActor()
 let networkActor     = NetworkActor()
 let defaultsActor    = DefaultsActor()
+let shellActor       = ShellActor()
 
 await daemonLifecycle.start()
 
@@ -49,6 +50,7 @@ let server = SocketServer { data in
             lifecycle: lifecycleActor, capture: captureActor,
             systemState: systemStateActor, power: powerActor,
             clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
+            shell: shellActor,
             sessionID: sessionID
         )
         let durationMs = Date().timeIntervalSince(start) * 1000
