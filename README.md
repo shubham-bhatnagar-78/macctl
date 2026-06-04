@@ -7,7 +7,7 @@ Built for agentic LLMs. Works standalone too.
 
 [![Swift](https://img.shields.io/badge/Swift-6.0-FA7343?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
 [![macOS](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-35%20tools-6366f1?style=flat-square)](https://modelcontextprotocol.io)
 [![CLI](https://img.shields.io/badge/CLI-25%20commands-10b981?style=flat-square)]()
 [![Actors](https://img.shields.io/badge/Swift%20actors-21-f59e0b?style=flat-square)]()
@@ -36,7 +36,7 @@ macctl app list
 macctl watch file ~/Downloads
 
 # Query calendar events
-macctl calendar events
+macctl calendar fetch-events
 
 # Search files with Spotlight
 macctl spotlight search "invoice 2024"
@@ -49,38 +49,65 @@ macctl window tile-left --id 12345
 
 ## Performance
 
-### CLI Spawn Latency (warm, real measured)
+### CLI Spawn Latency (warm median, 10 runs)
 
-| Tool | Spawn (warm) | Binary size | MCP | EventKit | Streaming |
-|---|---|---|---|---|---|
-| **macctl (C)** | **6ms** | 67KB | ✅ 35 tools | ✅ | ✅ |
-| Hammerspoon | 10ms | 30MB | ❌ | ❌ | ❌ |
-| Swift macctl | 25ms | 4.6MB | ✅ 35 tools | ✅ | ✅ |
-| Peekaboo | 146ms | 12MB | ✅ | ❌ | ❌ |
+| Tool | Spawn | Binary | MCP | Calendar/Reminders | Contacts | Files | Streaming | Spotlight |
+|---|---|---|---|---|---|---|---|---|
+| **macctl** | **6ms** | 52KB | ✅ 35 tools | ✅ | ✅ | ✅ iCloud-aware | ✅ | ✅ |
+| Hammerspoon | 10ms | 30MB | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Peekaboo | 146ms | 12MB | ✅ limited | ❌ | ❌ | ❌ | ❌ | ❌ |
+| cliclick | 18ms | 200KB | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ### MCP Tool Call Latency (persistent process, 20 sequential calls)
 
-| Server | Per call | Success |
+| Server | Per call | Reliability |
 |---|---|---|
-| **macctl-mcp (C)** | **24.6ms** | 20/20 |
-| macctl-mcp (Swift) | 27.5ms | 20/20 |
+| **macctl-mcp** | **24.6ms** | 20/20 ✅ |
 
-MCP servers run as persistent processes — spawn cost is one-time. Per-call overhead is socket IPC only.
+MCP server runs as a persistent process — spawn is one-time. Per-call cost is socket IPC only (~1.5ms after first connect).
 
-### Daemon-Internal Latency (after spawn, socket only)
+### Daemon-Internal Latency (socket IPC, daemon already running)
 
-All timings are **daemon-internal latency** (not including process spawn overhead). Daemon starts once at login; subsequent calls are socket IPC (~0.5ms overhead).
-
-| Operation | P50 | P95 | How |
+| Operation | P50 | P95 | Implementation |
 |---|---|---|---|
 | Keyboard shortcut | **2.2ms** | 2.3ms | BuiltinShortcutRegistry O(1) |
-| Type text (any length) | **0.5ms** | 0.8ms | AX `setValue` |
-| App list | **0.4ms** | 4ms | NSWorkspace index |
+| Type text | **0.5ms** | 0.8ms | AX `setValue` |
+| App list | **0.4ms** | 4ms | NSWorkspace |
 | System status (vol/WiFi/BT) | **1.4ms** | 4ms | CoreAudio/CoreWLAN/IOKit |
 | File read/write | **0.1–0.8ms** | 1.5ms | FileManager |
 | See UI elements | **11ms** | 20ms | AX focused window |
 | Screenshot | **60ms** | 110ms | ScreenCaptureKit warm |
 | Calendar events | **28ms** | 40ms | EventKit |
+
+### Feature Parity
+
+| Feature | macctl | Hammerspoon | Peekaboo | cliclick | Keyboard Maestro |
+|---|---|---|---|---|---|
+| Click / type / key | ✅ | ✅ | ✅ | ✅ | ✅ |
+| See UI elements (AX tree) | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Screenshot | ✅ | ✅ | ✅ | ❌ | ✅ |
+| App launch/quit | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Window move/resize/tile | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Process list/kill | ✅ | ✅ | ❌ | ❌ | ❌ |
+| System volume/brightness/WiFi/BT | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Clipboard (all types) | ✅ | ✅ | ❌ | ❌ | ✅ |
+| File read/write/move/copy | ✅ | ✅ | ❌ | ❌ | ✅ |
+| iCloud Drive (eviction-aware) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| File tags (xattr, 0.1ms) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Calendar + Reminders (EventKit) | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Contacts (ContactsKit) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Notes (AppleScript) | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Spotlight search | ✅ | ✅ | ❌ | ❌ | ✅ |
+| NSUserDefaults read/write | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Screen lock / caffeinate | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Keyboard input source | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Live file watching (kqueue) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| App lifecycle stream | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Shell execution | ✅ | ✅ | ❌ | ❌ | ✅ |
+| MCP server (LLM tool use) | ✅ 35 tools | ❌ | ✅ limited | ❌ | ❌ |
+| Builtin shortcut registry (59 apps) | ✅ O(1) | ❌ | ❌ | ❌ | ❌ |
+| Swift 6 strict concurrency | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Open source | ✅ AGPL | ✅ MIT | ✅ MIT | ✅ MIT | ❌ paid |
 
 ---
 
@@ -172,7 +199,7 @@ mcphost --model ollama:llama3.3 --mcp-config ~/.mcphost/config.json
 | Display | `macctl_screen_list` |
 | Input | `macctl_input_source_list`, `macctl_input_source_select` |
 | Defaults | `macctl_defaults_read`, `macctl_defaults_write` |
-| Network | `macctl_network_status` (resolve via `macctl_network_resolve`) |
+| Notes | `macctl notes list/get/create/append/delete` (CLI only) |
 
 ---
 
@@ -210,9 +237,10 @@ File Operations:
              mkdir / tag / reveal / open / resolve-icloud
 
 Data:
-  calendar   list / events / create / delete (EventKit)
-  reminders  lists / list / create / complete (EventKit)
+  calendar   list-calendars / fetch-events / create-event / delete-event (EventKit)
+  reminders  list-lists / fetch / create / complete (EventKit)
   contacts   search / get / create (ContactsKit)
+  notes      list / get / find / create / append / delete / folders (AppleScript)
 
 Window Management:
   window     list / move / resize / set-bounds / focus
@@ -308,7 +336,7 @@ cd macctl
 swift build               # debug
 swift build -c release    # release
 
-# C thin clients (CLI + MCP — 6ms spawn, 67KB binaries)
+# C thin clients (CLI 52KB, MCP 68KB — 6ms spawn)
 clang -O2 -o .build/macctl Sources/macctl-c/main.c
 clang -O2 -o .build/macctl-mcp Sources/macctl-c/mcp.c
 
@@ -319,7 +347,7 @@ swift test                # 122 tests
 ### Architecture
 
 ```
-macctl (C, 67KB)          macctl-mcp (C, 67KB)
+macctl (C, 52KB)          macctl-mcp (C, 68KB)
      │ Unix socket JSON-RPC       │
      └──────────────┬─────────────┘
                     │
@@ -334,7 +362,7 @@ macctl (C, 67KB)          macctl-mcp (C, 67KB)
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+AGPL-3.0 — see [LICENSE](LICENSE).
 
 ---
 
