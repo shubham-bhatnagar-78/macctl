@@ -49,6 +49,8 @@ macctl window tile-left --id 12345
 
 | Feature | macctl | Hammerspoon | Peekaboo | cliclick | Keyboard Maestro |
 |---|---|---|---|---|---|
+| **Spawn latency** | **6ms** | 10ms | 146ms | 18ms | — |
+| **Binary size** | **52KB** | 30MB | 12MB | 200KB | — |
 | Click / type / key | ✅ | ✅ | ✅ | ✅ | ✅ |
 | See UI elements (AX tree) | ✅ | ✅ | ✅ | ❌ | ✅ |
 | Screenshot | ✅ | ✅ | ✅ | ❌ | ✅ |
@@ -79,26 +81,7 @@ macctl window tile-left --id 12345
 
 ## Performance
 
-### Feature Parity
-
-| Tool | Spawn | Binary | MCP | Calendar/Reminders | Contacts | Files | Streaming | Spotlight |
-|---|---|---|---|---|---|---|---|---|
-| **macctl** | **6ms** | 52KB | ✅ 35 tools | ✅ | ✅ | ✅ iCloud-aware | ✅ | ✅ |
-| Hammerspoon | 10ms | 30MB | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Peekaboo | 146ms | 12MB | ✅ limited | ❌ | ❌ | ❌ | ❌ | ❌ |
-| cliclick | 18ms | 200KB | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-
-### MCP Tool Call Latency (persistent process, 20 sequential calls)
-
-| Server | Per call | Reliability |
-|---|---|---|
-| **macctl-mcp** | **24.6ms** | 20/20 ✅ |
-
-MCP server runs as a persistent process — spawn is one-time. Per-call cost is socket IPC only (~1.5ms after first connect).
-
 ### Operation Latency
-
-macctl uses daemon socket IPC — spawns once at login. Competitors re-spawn per call.
 
 | Operation | macctl | Hammerspoon | Peekaboo | cliclick |
 |---|---|---|---|---|
