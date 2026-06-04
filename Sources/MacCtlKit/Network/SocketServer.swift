@@ -131,7 +131,8 @@ public final class SocketServer: Sendable {
             }
             DispatchQueue.global(qos: .userInteractive).async {
                 sem.wait()
-                sendFrame(box.data)
+                // RPC response is raw JSON — must frame before sending
+                sendFrame(MessageFraming.frame(box.data))
             }
         }
     }
