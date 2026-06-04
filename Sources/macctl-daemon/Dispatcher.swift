@@ -105,8 +105,22 @@ func dispatch(
 
         if let eid = settableEID,
            await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
-            try await ax.setValue(text, forID: eid)
-            return layer("ax-setvalue", ["chars": .int(text.count)])
+            // ax.setValue is synchronous IPC — if app is busy (autosave, redraw),
+            // it blocks. Fall through to paste on failure rather than hanging.
+            do {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask { try await ax.setValue(text, forID: eid) }
+                    group.addTask {
+                        try await Task.sleep(for: .milliseconds(200))
+                        throw RPCError.timeout("ax setValue took >200ms")
+                    }
+                    try await group.next()!
+                    group.cancelAll()
+                }
+                return layer("ax-setvalue", ["chars": .int(text.count)])
+            } catch {
+                // App busy — fall through to paste
+            }
         }
         // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
         if text.count >= 2 {
