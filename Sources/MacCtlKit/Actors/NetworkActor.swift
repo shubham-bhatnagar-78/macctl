@@ -39,15 +39,18 @@ public actor NetworkActor {
     public func status() -> NetworkStatus {
         let path = currentPath ?? monitor.currentPath
         let ifaces = path.availableInterfaces
+        // Deduplicate by name — NWPath.availableInterfaces can return same interface multiple times
+        var seen = Set<String>()
+        let uniqueIfaces = ifaces.filter { seen.insert($0.name).inserted }
         return NetworkStatus(
             isConnected:   path.status == .satisfied,
             isExpensive:   path.isExpensive,
             isConstrained: path.isConstrained,
-            interfaces:    ifaces.map(\.name),
-            hasWifi:       ifaces.contains { $0.type == .wifi },
-            hasCellular:   ifaces.contains { $0.type == .cellular },
-            hasWired:      ifaces.contains { $0.type == .wiredEthernet },
-            hasVPN:        ifaces.contains { $0.type == .other }
+            interfaces:    uniqueIfaces.map(\.name),
+            hasWifi:       uniqueIfaces.contains { $0.type == .wifi },
+            hasCellular:   uniqueIfaces.contains { $0.type == .cellular },
+            hasWired:      uniqueIfaces.contains { $0.type == .wiredEthernet },
+            hasVPN:        uniqueIfaces.contains { $0.type == .other }
         )
     }
 
