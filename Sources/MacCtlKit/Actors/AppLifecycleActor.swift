@@ -1,32 +1,74 @@
 @preconcurrency import AppKit
+@preconcurrency import ApplicationServices
 import Logging
 
 public actor AppLifecycleActor {
     private var bundleURLCache: [String: URL] = [:]
     private var runningApps: [String: NSRunningApplication] = [:]
     private let logger = Logger(label: "macctl.lifecycle")
+    private var notificationTokens: [NSObjectProtocol] = []
 
     public init() {
-        Task { await self.refreshRunningIndex() }
-        Task { await self.startPollingIndex() }
+        Task { await self.buildIndex() }
+        Task { await self.subscribeToWorkspaceNotifications() }
     }
 
-    // MARK: - Running app index
+    deinit {
+        for token in notificationTokens {
+            NSWorkspace.shared.notificationCenter.removeObserver(token)
+        }
+    }
 
-    private func refreshRunningIndex() {
+    // MARK: - Running index
+
+    private func buildIndex() {
         for app in NSWorkspace.shared.runningApplications {
             guard let bid = app.bundleIdentifier else { continue }
-            if app.isTerminated { runningApps.removeValue(forKey: bid) }
-            else { runningApps[bid] = app }
+            runningApps[bid] = app
         }
+        logger.debug("Index built: \(runningApps.count) running apps")
     }
 
-    private func startPollingIndex() async {
-        // Simple polling — adequate for v1. Replace with NSWorkspace notifications in v2.
-        while true {
-            try? await Task.sleep(for: .seconds(2))
-            refreshRunningIndex()
+    /// Subscribe to NSWorkspace notifications — O(1) reactive updates, no polling.
+    private func subscribeToWorkspaceNotifications() async {
+        let nc = NSWorkspace.shared.notificationCenter
+
+        let launchToken = nc.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil, queue: nil
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  let bid = app.bundleIdentifier else { return }
+            Task { await self?.handleLaunch(app: app, bundleID: bid) }
         }
+
+        let terminateToken = nc.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil, queue: nil
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  let bid = app.bundleIdentifier else { return }
+            Task { await self?.handleTerminate(bundleID: bid) }
+        }
+
+        let activateToken = nc.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: nil
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  let bid = app.bundleIdentifier else { return }
+            Task { await self?.handleLaunch(app: app, bundleID: bid) }
+        }
+
+        notificationTokens = [launchToken, terminateToken, activateToken]
+    }
+
+    private func handleLaunch(app: NSRunningApplication, bundleID: String) {
+        runningApps[bundleID] = app
+    }
+
+    private func handleTerminate(bundleID: String) {
+        runningApps.removeValue(forKey: bundleID)
     }
 
     // MARK: - Queries
@@ -54,7 +96,6 @@ public actor AppLifecycleActor {
     // MARK: - Launch
 
     public func launch(_ bundleID: String, background: Bool = false) async throws -> pid_t {
-        // Return existing PID if already running
         if let existing = pid(for: bundleID) { return existing }
         let url = try bundleURL(for: bundleID)
         let config = NSWorkspace.OpenConfiguration()
@@ -93,26 +134,10 @@ public actor AppLifecycleActor {
     // MARK: - Wait until AX-ready
 
     public func waitUntilReady(_ bundleID: String, timeout: Duration = .seconds(15)) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
-                while true {
-                    if let pid = await self.pid(for: bundleID) {
-                        var value: CFTypeRef?
-                        if AXUIElementCopyAttributeValue(
-                            AXUIElementCreateApplication(pid), kAXRoleAttribute as CFString, &value) == .success {
-                            return
-                        }
-                    }
-                    try await Task.sleep(for: .milliseconds(150))
-                }
-            }
-            group.addTask {
-                try await Task.sleep(for: timeout)
-                throw LifecycleError.timeout(bundleID)
-            }
-            try await group.next()!
-            group.cancelAll()
+        guard let pid = pid(for: bundleID) else {
+            throw LifecycleError.appNotRunning(bundleID)
         }
+        try await WaitEngine.waitForAppReady(pid: pid, timeout: timeout)
     }
 
     // MARK: - Pre-warm bundle URLs
