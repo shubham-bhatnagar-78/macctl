@@ -102,16 +102,25 @@ public actor AXActor {
 
     // MARK: - Element enumeration
 
-    /// List interactive elements in the focused window. Max 100 elements, 2s timeout.
-    /// Returns partial results if timeout fires — never blocks indefinitely.
+    /// List interactive elements. Resolution: focused window → first window → full app.
+    /// Max 100 elements, 2s timeout, partial results if timeout fires.
     public func listElements(in app: AXUIElement, maxDepth: Int = 5, maxElements: Int = 100) -> [AXElementInfo] {
         let root: AXUIElement
         var focusedRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
            let focused = focusedRef {
+            // Best: focused window (app is frontmost)
             root = focused as! AXUIElement
         } else {
-            root = app
+            // Fallback: first window in kAXWindowsAttribute (app is in background)
+            var windowsRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+               let windows = windowsRef as? [AXUIElement],
+               let first = windows.first {
+                root = first
+            } else {
+                root = app
+            }
         }
         // Run traversal on background queue with 2s timeout — returns partial results on slow apps
         let box = ElementListBox()
@@ -136,18 +145,24 @@ public actor AXActor {
         "AXDateField", "AXTimeField", "AXColorWell",
     ]
 
+    // Roles that are always included (even with empty title) — user can type into them
+    private let alwaysIncludeRoles: Set<String> = ["AXTextArea", "AXTextField", "AXSearchField"]
+
     private func enumerateRecursive(element: AXUIElement, depth: Int,
                                     results: inout [AXElementInfo], maxElements: Int = 100) {
         guard depth > 0, results.count < maxElements else { return }
         let role = stringValue(element, attribute: kAXRoleAttribute) ?? ""
+        // Title: try kAXTitle, kAXDescription, kAXValue (for text areas showing content)
         let title = stringValue(element, attribute: kAXTitleAttribute)
             ?? stringValue(element, attribute: kAXDescriptionAttribute)
-            ?? ""
-        // Only include interactive roles with non-empty titles
-        if interactiveRoles.contains(role) && !title.isEmpty {
+            ?? (alwaysIncludeRoles.contains(role) ? (stringValue(element, attribute: kAXValueAttribute).map { String($0.prefix(40)) } ?? role) : "")
+
+        // Include if: (interactive role AND has title) OR (text input role — always useful)
+        let shouldInclude = interactiveRoles.contains(role) && (!title.isEmpty || alwaysIncludeRoles.contains(role))
+        if shouldInclude {
             let id = nextID()
             elementCache[id] = element
-            results.append(AXElementInfo(id: id, role: role, title: title, frame: frameOf(element)))
+            results.append(AXElementInfo(id: id, role: role, title: title.isEmpty ? role : title, frame: frameOf(element)))
         }
         for child in childrenOf(element) {
             guard results.count < maxElements else { break }
