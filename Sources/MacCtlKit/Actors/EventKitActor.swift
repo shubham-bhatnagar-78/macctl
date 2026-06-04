@@ -170,7 +170,12 @@ public actor EventKitActor {
         if let id = listID {
             reminder.calendar = store.calendar(withIdentifier: id)
         } else {
+            // Use default if available, otherwise use first Reminders calendar
             reminder.calendar = store.defaultCalendarForNewReminders()
+                ?? store.calendars(for: .reminder).first
+        }
+        guard reminder.calendar != nil else {
+            throw EventKitError.accessDenied("No Reminders calendar available — open Reminders.app first")
         }
         try store.save(reminder, commit: true)
         return reminderToStruct(reminder)
