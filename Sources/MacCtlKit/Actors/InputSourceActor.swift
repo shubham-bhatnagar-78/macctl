@@ -1,74 +1,60 @@
-import Carbon
 import Foundation
 
 public struct InputSourceInfo: Sendable {
     public let id: String
     public let localizedName: String
     public let isSelected: Bool
-    public let category: String   // "keyboard", "input method", etc.
+    public let category: String
 }
 
 public actor InputSourceActor {
     public init() {}
 
+    /// Current keyboard input source — read from preferences (no TIS, no crash risk).
     public func current() -> InputSourceInfo? {
-        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
+        guard let prefs = UserDefaults(suiteName: "com.apple.HIToolbox"),
+              let id = prefs.string(forKey: "AppleCurrentKeyboardLayoutInputSourceID")
         else { return nil }
-        return sourceInfo(source, selected: true)
+        // Extract display name from ID: "com.apple.keylayout.US" → "U.S."
+        let name = id.components(separatedBy: ".").last?
+                   .replacingOccurrences(of: "-", with: " ") ?? id
+        return InputSourceInfo(id: id, localizedName: name, isSelected: true, category: "keyboard")
     }
 
+    /// List enabled input sources from preferences.
     public func list() -> [InputSourceInfo] {
         let currentID = current()?.id
-        guard let all = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource]
-        else { return [] }
-        return all.compactMap { source in
-            // Only include selectable sources
-            guard let selectable = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsSelectCapable),
-                  CFBooleanGetValue(selectable as! CFBoolean)
+        guard let prefs = UserDefaults(suiteName: "com.apple.HIToolbox"),
+              let enabled = prefs.array(forKey: "AppleEnabledInputSources") as? [[String: Any]]
+        else { return current().map { [$0] } ?? [] }
+
+        return enabled.compactMap { dict -> InputSourceInfo? in
+            guard let id = dict["InputSourceKind"] as? String
+                       ?? dict["Bundle ID"] as? String
             else { return nil }
-            let info = sourceInfo(source, selected: false)
-            if info.id.isEmpty { return nil }
-            return InputSourceInfo(id: info.id, localizedName: info.localizedName,
-                                   isSelected: info.id == currentID, category: info.category)
+            let name = id.components(separatedBy: ".").last?
+                       .replacingOccurrences(of: "-", with: " ") ?? id
+            return InputSourceInfo(id: id, localizedName: name,
+                                   isSelected: id == currentID, category: "keyboard")
         }
     }
 
+    /// Switch input source via AppleScript (reliable, works in daemon context).
     public func select(id: String) throws {
-        guard let all = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource],
-              let source = all.first(where: { sourceID($0) == id })
-        else { throw InputSourceError.notFound(id) }
-        let result = TISSelectInputSource(source)
-        if result != noErr { throw InputSourceError.selectFailed(id) }
+        let script = "tell application \"System Events\" to set the input source to \"\(id)\""
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        task.arguments = ["-e", script]
+        try task.run()
+        task.waitUntilExit()
+        if task.terminationStatus != 0 { throw InputSourceError.selectFailed(id) }
     }
 
     public func selectByName(_ name: String) throws {
-        guard let source = list().first(where: {
+        guard let src = list().first(where: {
             $0.localizedName.localizedCaseInsensitiveContains(name) })
         else { throw InputSourceError.notFound(name) }
-        try select(id: source.id)
-    }
-
-    private func sourceID(_ source: TISInputSource) -> String {
-        guard let p = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
-        else { return "" }
-        return (p as! CFString) as String
-    }
-
-    private func sourceInfo(_ source: TISInputSource, selected: Bool) -> InputSourceInfo {
-        let id = sourceID(source)
-        let name: String = {
-            if let p = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
-                return (p as! CFString) as String
-            }
-            return id
-        }()
-        let category: String = {
-            if let p = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) {
-                return (p as! CFString) as String
-            }
-            return "unknown"
-        }()
-        return InputSourceInfo(id: id, localizedName: name, isSelected: selected, category: category)
+        try select(id: src.id)
     }
 }
 
