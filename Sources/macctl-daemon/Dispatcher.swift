@@ -125,8 +125,9 @@ func dispatch(
                 }
             }
         }
-        // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
-        if text.count >= 2 {
+        // Paste is always faster than CGEvent (O(1) vs O(n)) and more reliable.
+        // Use paste for all text lengths. CGEvent sequence only for empty string edge case.
+        if !text.isEmpty {
             try await input.pasteText(text, pid: pid)
             return layer("input-paste", ["chars": .int(text.count)])
         }
