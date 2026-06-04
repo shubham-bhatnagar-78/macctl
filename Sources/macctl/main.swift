@@ -15,6 +15,11 @@ struct MacCtl: ParsableCommand {
             AppCommand.self,
             ScreenshotCommand.self,
             InstallCommand.self,
+            SystemCommand.self,
+            PowerCommand.self,
+            ClipboardCommand.self,
+            NetworkCommand.self,
+            DefaultsCommand.self,
         ]
     )
 }
