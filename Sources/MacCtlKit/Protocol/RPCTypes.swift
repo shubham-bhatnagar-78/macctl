@@ -98,6 +98,28 @@ public struct RPCError: Codable, Sendable, Error {
     }
 }
 
+// MARK: - JSONValue helpers
+
+public extension JSONValue {
+    var stringValue: String? {
+        if case .string(let s) = self { return s }
+        return nil
+    }
+    var intValue: Int? {
+        if case .int(let i) = self { return i }
+        return nil
+    }
+    var doubleValue: Double? {
+        if case .double(let d) = self { return d }
+        if case .int(let i) = self { return Double(i) }
+        return nil
+    }
+    var boolValue: Bool? {
+        if case .bool(let b) = self { return b }
+        return nil
+    }
+}
+
 // MARK: - Convenience constructors
 
 public extension RPCError {

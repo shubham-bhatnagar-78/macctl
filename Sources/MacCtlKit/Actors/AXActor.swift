@@ -9,6 +9,8 @@ public actor AXActor {
     private var idCounter = 0
     private let logger = Logger(label: "macctl.ax")
 
+    public init() {}
+
     // MARK: - App element
 
     public func appElement(pid: pid_t) -> AXUIElement {
@@ -54,8 +56,17 @@ public actor AXActor {
 
     // MARK: - Element search
 
-    /// Find first element matching query by title/label/description.
-    public func findElement(query: String, in app: AXUIElement, maxDepth: Int = 10) -> AXUIElement? {
+    /// Find first element matching query. Returns element ID registered in cache.
+    public func findElementID(query: String, in app: AXUIElement, maxDepth: Int = 10) -> String? {
+        guard let element = findRecursive(query: query.lowercased(), element: app, depth: maxDepth)
+        else { return nil }
+        let id = nextID()
+        elementCache[id] = element
+        return id
+    }
+
+    /// Internal: returns raw AXUIElement — only use within this actor.
+    func findElement(query: String, in app: AXUIElement, maxDepth: Int = 10) -> AXUIElement? {
         findRecursive(query: query.lowercased(), element: app, depth: maxDepth)
     }
 
@@ -120,25 +131,46 @@ public actor AXActor {
     public func element(for id: String) -> AXUIElement? { elementCache[id] }
     public func clearCache() { elementCache.removeAll(); idCounter = 0 }
 
-    // MARK: - Actions
+    // MARK: - Actions (by element ID — safe cross-actor boundary)
 
-    public func press(_ element: AXUIElement) throws {
+    public func press(id: String) throws {
+        guard let element = elementCache[id] else { throw AXActorError.elementNotFound }
         let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
         guard result == .success else { throw AXActorError.actionFailed(result.rawValue) }
     }
 
-    public func setValue(_ value: String, on element: AXUIElement) throws {
+    public func setValue(_ value: String, forID id: String) throws {
+        guard let element = elementCache[id] else { throw AXActorError.elementNotFound }
         let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFString)
         guard result == .success else { throw AXActorError.setValueFailed(result.rawValue) }
     }
 
-    public func isSettable(_ element: AXUIElement, attribute: String) -> Bool {
+    public func isSettable(id: String, attribute: String) -> Bool {
+        guard let element = elementCache[id] else { return false }
         var settable: DarwinBoolean = false
         AXUIElementIsAttributeSettable(element, attribute as CFString, &settable)
         return settable.boolValue
     }
 
-    public func focus(_ element: AXUIElement) {
+    // Internal AXUIElement variants — used by InputActor indirectly (within actor only)
+    func press(_ element: AXUIElement) throws {
+        let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        guard result == .success else { throw AXActorError.actionFailed(result.rawValue) }
+    }
+
+    func setValue(_ value: String, on element: AXUIElement) throws {
+        let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFString)
+        guard result == .success else { throw AXActorError.setValueFailed(result.rawValue) }
+    }
+
+    func isSettable(_ element: AXUIElement, attribute: String) -> Bool {
+        var settable: DarwinBoolean = false
+        AXUIElementIsAttributeSettable(element, attribute as CFString, &settable)
+        return settable.boolValue
+    }
+
+    public func focus(id: String) {
+        guard let element = elementCache[id] else { return }
         AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, true as CFBoolean)
     }
 }
