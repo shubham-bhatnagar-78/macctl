@@ -71,35 +71,44 @@ public actor SystemStateActor {
     }
 
     // MARK: - Brightness (IOKit — undocumented but stable since macOS 10.x)
-    // No public API for programmatic brightness control exists on macOS.
+    // No public API exists for programmatic brightness control on macOS.
+    // IODisplayConnect = external displays. AppleBacklightDisplay = built-in (MacBook/iMac).
+    // Tries both services; returns first non-zero value found.
 
     public func brightness() -> Float {
-        var value: Float = 0
-        var iterator = io_iterator_t()
-        IOServiceGetMatchingServices(kIOMainPortDefault,
-            IOServiceMatching("IODisplayConnect"), &iterator)
-        var service = IOIteratorNext(iterator)
-        while service != 0 {
-            IODisplayGetFloatParameter(service, 0, kIODisplayBrightnessKey as CFString, &value)
+        for service in brightnessServices() {
+            var value: Float = 0
+            if IODisplayGetFloatParameter(service, 0, kIODisplayBrightnessKey as CFString, &value) == kIOReturnSuccess,
+               value > 0 {
+                IOObjectRelease(service)
+                return value
+            }
             IOObjectRelease(service)
-            service = IOIteratorNext(iterator)
         }
-        IOObjectRelease(iterator)
-        return value
+        return 0
     }
 
     public func setBrightness(_ value: Float) {
         let clamped = max(0, min(1, value))
-        var iterator = io_iterator_t()
-        IOServiceGetMatchingServices(kIOMainPortDefault,
-            IOServiceMatching("IODisplayConnect"), &iterator)
-        var service = IOIteratorNext(iterator)
-        while service != 0 {
+        for service in brightnessServices() {
             IODisplaySetFloatParameter(service, 0, kIODisplayBrightnessKey as CFString, clamped)
             IOObjectRelease(service)
-            service = IOIteratorNext(iterator)
         }
-        IOObjectRelease(iterator)
+    }
+
+    private func brightnessServices() -> [io_object_t] {
+        var services: [io_object_t] = []
+        for serviceName in ["IODisplayConnect", "AppleBacklightDisplay"] {
+            var iterator = io_iterator_t()
+            IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching(serviceName), &iterator)
+            var service = IOIteratorNext(iterator)
+            while service != 0 {
+                services.append(service)
+                service = IOIteratorNext(iterator)
+            }
+            IOObjectRelease(iterator)
+        }
+        return services
     }
 
     // MARK: - WiFi (CoreWLAN — public API)
