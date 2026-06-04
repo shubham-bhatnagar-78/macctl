@@ -35,6 +35,23 @@ await lifecycleActor.preResolveBundleURLs(for: appleApps)
 
 let sessionID = daemonLifecycle.sessionID
 
+// Build middleware pipeline: logging (outermost) → dry-run → dispatch (base)
+let isDryRun = CommandLine.arguments.contains("--dry-run")
+let middlewarePipeline = buildMiddlewareChain(
+    middlewares: [loggingMiddleware, makeDryRunMiddleware(dryRun: isDryRun)],
+    base: { method, params in
+        try await dispatch(
+            method: method, params: params,
+            ax: axActor, input: inputActor, keyboard: keyboardActor,
+            lifecycle: lifecycleActor, capture: captureActor,
+            systemState: systemStateActor, power: powerActor,
+            clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
+            shell: shellActor, file: fileActor,
+            sessionID: sessionID
+        )
+    }
+)
+
 let server = SocketServer(rpc: { data in
     guard let request = try? JSONDecoder().decode(RPCRequest.self, from: data) else {
         let errPayload: [String: JSONValue] = [
@@ -47,17 +64,7 @@ let server = SocketServer(rpc: { data in
 
     let start = Date()
     do {
-        let resultData = try await dispatch(
-            method: request.method,
-            params: request.params ?? [:],
-            ax: axActor, input: inputActor, keyboard: keyboardActor,
-            lifecycle: lifecycleActor, capture: captureActor,
-            systemState: systemStateActor, power: powerActor,
-            clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
-            shell: shellActor,
-            file: fileActor,
-            sessionID: sessionID
-        )
+        let resultData = try await middlewarePipeline(request.method, request.params ?? [:])
         let durationMs = Date().timeIntervalSince(start) * 1000
         let layer = resultData["_layer"]?.stringValue ?? "unknown"
         let retries = resultData["_retries"]?.intValue ?? 0
