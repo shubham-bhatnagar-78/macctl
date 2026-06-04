@@ -13,6 +13,8 @@ struct MacCtl: ParsableCommand {
             KeyCommand.self,
             SeeCommand.self,
             ScrollCommand.self,
+            DragCommand.self,
+            ShellCommand.self,
             AppCommand.self,
             ScreenshotCommand.self,
             InstallCommand.self,

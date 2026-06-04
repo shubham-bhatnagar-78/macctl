@@ -17,6 +17,7 @@ func dispatch(
     clipboard: ClipboardActor,
     network: NetworkActor,
     defaults: DefaultsActor,
+    shell: ShellActor,
     sessionID: String
 ) async throws -> [String: JSONValue] {
 
@@ -388,6 +389,42 @@ func dispatch(
         else { throw RPCError.operationFailed("defaults.delete requires domain + key") }
         await defaults.delete(domain: domain, key: key)
         return layer("native-api")
+
+    // MARK: - shell
+
+    case "shell":
+        guard case .string(let command) = params["command"] else {
+            throw RPCError.operationFailed("shell requires 'command'")
+        }
+        let wd = params["workingDirectory"]?.stringValue
+        let timeoutSecs = params["timeout"]?.doubleValue ?? 30.0
+        let result = try await shell.run(command, workingDirectory: wd,
+                                         timeout: .seconds(timeoutSecs))
+        return layer("shell", [
+            "stdout":   .string(result.stdout),
+            "stderr":   .string(result.stderr),
+            "exitCode": .int(Int(result.exitCode)),
+        ])
+
+    // MARK: - drag
+
+    case "drag":
+        guard case .string(let bid) = params["bundleID"] else {
+            throw RPCError.operationFailed("drag requires bundleID")
+        }
+        guard let pid = await lifecycle.pid(for: bid) else {
+            throw RPCError.appNotRunning(bid)
+        }
+        guard case .double(let fx) = params["fromX"],
+              case .double(let fy) = params["fromY"],
+              case .double(let tx) = params["toX"],
+              case .double(let ty) = params["toY"]
+        else { throw RPCError.operationFailed("drag requires fromX/fromY/toX/toY") }
+        let steps = params["steps"]?.intValue ?? 20
+        try await input.drag(from: CGPoint(x: fx, y: fy), to: CGPoint(x: tx, y: ty),
+                             pid: pid, steps: steps)
+        return layer("input-drag", ["from": .object(["x":.double(fx),"y":.double(fy)]),
+                                    "to":   .object(["x":.double(tx),"y":.double(ty)])])
 
     default:
         throw RPCError(code: 5, message: "Unknown method: \(method)")
