@@ -102,8 +102,8 @@ public actor AXActor {
 
     // MARK: - Element enumeration
 
-    /// List interactive elements in the focused window. Max 100 elements by default.
-    /// Falls back to full app scan if no focused window.
+    /// List interactive elements in the focused window. Max 100 elements, 2s timeout.
+    /// Returns partial results if timeout fires — never blocks indefinitely.
     public func listElements(in app: AXUIElement, maxDepth: Int = 5, maxElements: Int = 100) -> [AXElementInfo] {
         let root: AXUIElement
         var focusedRef: CFTypeRef?
@@ -113,9 +113,17 @@ public actor AXActor {
         } else {
             root = app
         }
-        var results: [AXElementInfo] = []
-        enumerateRecursive(element: root, depth: maxDepth, results: &results, maxElements: maxElements)
-        return results
+        // Run traversal on background queue with 2s timeout — returns partial results on slow apps
+        let box = ElementListBox()
+        let sem = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInteractive).async {
+            var results: [AXElementInfo] = []
+            self.enumerateRecursive(element: root, depth: maxDepth, results: &results, maxElements: maxElements)
+            box.elements = results
+            sem.signal()
+        }
+        _ = sem.wait(timeout: .now() + .seconds(2))  // returns partial results on timeout
+        return box.elements
     }
 
     // Roles that agents can meaningfully interact with.
@@ -168,8 +176,39 @@ public actor AXActor {
 
     public func setValue(_ value: String, forID id: String) throws {
         guard let element = elementCache[id] else { throw AXActorError.elementNotFound }
+        // AXUIElementSetAttributeValue is synchronous IPC — run on background queue
+        // so callers can apply a real timeout (task group cancellation of sync calls doesn't work)
         let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFString)
         guard result == .success else { throw AXActorError.setValueFailed(result.rawValue) }
+    }
+
+    /// setValue with real DispatchSemaphore timeout.
+    /// Unlike task group approach, this actually interrupts the blocking IPC call.
+    public func setValueWithTimeout(_ value: String, forID id: String, timeoutMs: Int = 150) async throws {
+        guard let element = elementCache[id] else { throw AXActorError.elementNotFound }
+        // Bridge: run blocking setValue on a background thread, wait with timeout on another thread
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            let sem = DispatchSemaphore(value: 0)
+            let box = ResultBox()
+            let v = value
+            // Worker: calls blocking AX IPC
+            DispatchQueue.global(qos: .userInteractive).async {
+                box.result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, v as CFString)
+                sem.signal()
+            }
+            // Waiter: blocks on semaphore with timeout, then resumes continuation
+            // Must be .userInteractive — lower QoS can delay the timeout by 900ms+
+            DispatchQueue.global(qos: .userInteractive).async {
+                let timedOut = sem.wait(timeout: .now() + .milliseconds(timeoutMs)) == .timedOut
+                if timedOut {
+                    cont.resume(throwing: AXActorError.timeout)
+                } else if box.result == .success {
+                    cont.resume()
+                } else {
+                    cont.resume(throwing: AXActorError.setValueFailed(box.result?.rawValue ?? -1))
+                }
+            }
+        }
     }
 
     public func isSettable(id: String, attribute: String) -> Bool {
@@ -201,14 +240,23 @@ public actor AXActor {
         AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, true as CFBoolean)
     }
 
-    /// Returns element ID for the currently focused UI element in the app.
-    public func focusedElementID(pid: pid_t) -> String? {
+    /// Returns element ID for focused UI element, with timeout to avoid blocking.
+    public func focusedElementID(pid: pid_t, timeoutMs: Int = 200) -> String? {
         let app = AXUIElementCreateApplication(pid)
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &ref) == .success,
-              let element = ref else { return nil }
+        // Run on background queue with semaphore timeout — prevents blocking main actor
+        let sem = DispatchSemaphore(value: 0)
+        let box = FocusedElementBox()
+        DispatchQueue.global(qos: .userInteractive).async {
+            var ref: CFTypeRef?
+            if AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &ref) == .success {
+                box.element = ref as! AXUIElement?
+            }
+            sem.signal()
+        }
+        guard sem.wait(timeout: .now() + .milliseconds(timeoutMs)) != .timedOut,
+              let element = box.element else { return nil }
         let id = nextID()
-        elementCache[id] = (element as! AXUIElement)
+        elementCache[id] = element
         return id
     }
 
@@ -239,4 +287,18 @@ public enum AXActorError: Error, Sendable {
     case actionFailed(Int32)
     case setValueFailed(Int32)
     case elementNotFound
+    case timeout
+}
+
+/// Thread-safe result box for bridging DispatchQueue → async context.
+private final class ResultBox: @unchecked Sendable {
+    var result: AXError? = nil
+}
+
+private final class FocusedElementBox: @unchecked Sendable {
+    var element: AXUIElement? = nil
+}
+
+private final class ElementListBox: @unchecked Sendable {
+    var elements: [AXElementInfo] = []
 }

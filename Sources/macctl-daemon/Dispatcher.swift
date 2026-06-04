@@ -99,32 +99,30 @@ func dispatch(
             throw RPCError.appNotRunning(bid)
         }
         // Smart routing: AX setValue (1-2ms) → paste (12ms) → CGEvent (slow)
-        // Try focused element first (fastest: no search needed)
-        var settableEID: String? = await ax.focusedElementID(pid: pid)
-
-        // If query given and focused element not settable, search by query
-        if case .string(let query) = params["query"], settableEID == nil {
-            let axApp = await ax.appElement(pid: pid)
-            settableEID = await ax.findElementID(query: query, in: axApp)
-        }
-
-        if let eid = settableEID,
-           await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
-            // ax.setValue is synchronous IPC — if app is busy (autosave, redraw),
-            // it blocks. Fall through to paste on failure rather than hanging.
-            do {
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    group.addTask { try await ax.setValue(text, forID: eid) }
-                    group.addTask {
-                        try await Task.sleep(for: .milliseconds(200))
-                        throw RPCError.timeout("ax setValue took >200ms")
-                    }
-                    try await group.next()!
-                    group.cancelAll()
+        //
+        // AX setValue path: ONLY when --into query is provided.
+        // focusedElementID() not used by default — it blocks >200ms on busy apps (TextEdit, etc.)
+        // because AX requests process on the app's main thread.
+        // For general typing, paste is always fast and always works.
+        //
+        // Use: macctl type "text" --into "field name" --app App  →  ax-setvalue (1-2ms)
+        // Use: macctl type "text" --app App                      →  paste (12ms)
+        if case .string(let query) = params["query"] {
+            let result = try? await RetryEngine.run(attempts: 2) {
+                let axApp = await ax.appElement(pid: pid)
+                guard let id = await ax.findElementID(query: query, in: axApp) else {
+                    throw RPCError.elementNotFound(query, app: bid)
                 }
-                return layer("ax-setvalue", ["chars": .int(text.count)])
-            } catch {
-                // App busy — fall through to paste
+                return id
+            }
+            if let eid = result?.value,
+               await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
+                do {
+                    try await ax.setValueWithTimeout(text, forID: eid, timeoutMs: 150)
+                    return layer("ax-setvalue", ["chars": .int(text.count)])
+                } catch {
+                    // App busy — fall through to paste
+                }
             }
         }
         // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
