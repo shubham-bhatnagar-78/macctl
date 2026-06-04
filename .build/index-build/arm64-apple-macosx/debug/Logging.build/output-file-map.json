@@ -1,0 +1,75 @@
+{
+  "": {
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/master.swiftdeps"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Handlers/MultiplexLogHandler.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MultiplexLogHandler.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MultiplexLogHandler.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MultiplexLogHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MultiplexLogHandler.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MultiplexLogHandler.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Handlers/StreamLogHandler.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/StreamLogHandler.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/StreamLogHandler.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/StreamLogHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/StreamLogHandler.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/StreamLogHandler.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Handlers/SwiftLogNoOpLogHandler.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/SwiftLogNoOpLogHandler.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/SwiftLogNoOpLogHandler.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/SwiftLogNoOpLogHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/SwiftLogNoOpLogHandler.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/SwiftLogNoOpLogHandler.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Locks.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Locks.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Locks.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Locks~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Locks.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Locks.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/LogEvent.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogEvent.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogEvent.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogEvent~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogEvent.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogEvent.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/LogHandler.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogHandler.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogHandler.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogHandler~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogHandler.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LogHandler.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Logger+Attributes.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger+Attributes.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger+Attributes.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger+Attributes~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger+Attributes.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger+Attributes.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/Logger.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/Logger.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/LoggingSystem.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LoggingSystem.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LoggingSystem.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LoggingSystem~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LoggingSystem.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/LoggingSystem.dia"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/checkouts/swift-log/Sources/Logging/MetadataProvider.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MetadataProvider.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MetadataProvider.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MetadataProvider~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MetadataProvider.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/index-build/arm64-apple-macosx/debug/Logging.build/MetadataProvider.dia"
+  }
+}

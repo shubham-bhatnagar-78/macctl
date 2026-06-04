@@ -1,0 +1,3 @@
+module MacCtlKit {
+    header "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/MacCtlKit.build/include/MacCtlKit-Swift.h"
+}

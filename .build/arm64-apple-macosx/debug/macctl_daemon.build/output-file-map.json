@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/master.swiftdeps"
+  },
+  "/Users/shubhambhatnagar/Code/agentic-cli/Sources/macctl-daemon/main.swift": {
+    "dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/main.d",
+    "object": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/main.swift.o",
+    "swiftmodule": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/main.swiftdeps",
+    "diagnostics": "/Users/shubhambhatnagar/Code/agentic-cli/.build/arm64-apple-macosx/debug/macctl_daemon.build/main.dia"
+  }
+}
