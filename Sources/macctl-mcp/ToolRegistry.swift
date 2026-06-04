@@ -176,6 +176,47 @@ enum ToolRegistry {
                              "key":    s("Key name"),
                              "value":  s("Value (string, number, or bool as string)")],
                 required: ["domain", "key", "value"]),
+
+        // Window management
+        MCPTool(name: "macctl_window_list",
+                description: "List all visible windows with IDs, positions, sizes. windowID is used by other window tools.",
+                properties: ["app": s("Filter by bundle ID (optional)")], required: []),
+        MCPTool(name: "macctl_window_set_bounds",
+                description: "Move and resize a window.",
+                properties: ["windowID":n("Window ID from macctl_window_list"),"x":n("X"),"y":n("Y"),"width":n("Width"),"height":n("Height")],
+                required: ["windowID","x","y","width","height"]),
+        MCPTool(name: "macctl_window_tile",
+                description: "Tile window to left or right half of screen.",
+                properties: ["windowID":n("Window ID"),"side":s("left or right")], required: ["windowID","side"]),
+        MCPTool(name: "macctl_window_fullscreen",
+                description: "Toggle window fullscreen.",
+                properties: ["windowID":n("Window ID"),"enabled":b("true=fullscreen, false=exit")], required: ["windowID"]),
+
+        // Process management
+        MCPTool(name: "macctl_process_list",
+                description: "List all running processes sorted by memory usage.",
+                properties: ["filter": s("Filter by name (optional)")], required: []),
+        MCPTool(name: "macctl_process_kill",
+                description: "Kill process by PID or name (SIGTERM by default).",
+                properties: ["pid":n("Process ID"),"name":s("Process name"),"force":b("SIGKILL")], required: []),
+
+        // Spotlight
+        MCPTool(name: "macctl_spotlight_search",
+                description: "Search for files by name using Spotlight.",
+                properties: ["query":s("Search query"),"limit":n("Max results (default 50)")], required: ["query"]),
+
+        // Screen
+        MCPTool(name: "macctl_screen_list",
+                description: "List all displays: name, resolution, scale factor, brightness.",
+                properties: [:], required: []),
+
+        // Input source
+        MCPTool(name: "macctl_input_source_list",
+                description: "List available keyboard layouts/input sources.",
+                properties: [:], required: []),
+        MCPTool(name: "macctl_input_source_select",
+                description: "Switch keyboard input source by ID or name.",
+                properties: ["id": s("Input source ID or partial name (e.g. U.S., Japanese)")], required: ["id"]),
     ]
 
     // MARK: - Execute tool call
@@ -321,6 +362,41 @@ enum ToolRegistry {
             else if let v = nv("value") { p["value"] = v }
             else if let v = bv("value") { p["value"] = v }
             return ("defaults.write", p)
+
+        case "macctl_window_list":
+            var p: [String: JSONValue] = [:]
+            if let a = sv("app") { p["bundleID"] = a }
+            return ("window.list", p)
+        case "macctl_window_set_bounds":
+            return ("window.set-bounds", ["windowID": nv("windowID") ?? .int(0),
+                "x":nv("x") ?? .double(0),"y":nv("y") ?? .double(0),
+                "width":nv("width") ?? .double(800),"height":nv("height") ?? .double(600)])
+        case "macctl_window_tile":
+            let side = (args["side"] as? String) ?? "left"
+            let wid  = nv("windowID") ?? .int(0)
+            return (side == "right" ? "window.tile-right" : "window.tile-left", ["windowID": wid])
+        case "macctl_window_fullscreen":
+            var p: [String: JSONValue] = ["windowID": nv("windowID") ?? .int(0)]
+            if let e = bv("enabled") { p["enabled"] = e }
+            return ("window.fullscreen", p)
+        case "macctl_process_list":
+            var p: [String: JSONValue] = [:]
+            if let f = sv("filter") { p["filter"] = f }
+            return ("process.list", p)
+        case "macctl_process_kill":
+            var p: [String: JSONValue] = [:]
+            if let pid = nv("pid")    { p["pid"]   = pid }
+            if let n   = sv("name")   { p["name"]  = n   }
+            if let f   = bv("force")  { p["force"] = f   }
+            return ("process.kill", p)
+        case "macctl_spotlight_search":
+            var p: [String: JSONValue] = ["query": sv("query") ?? .string("")]
+            if let l = nv("limit") { p["limit"] = l }
+            return ("spotlight.search", p)
+        case "macctl_screen_list":      return ("screen.list", [:])
+        case "macctl_input_source_list": return ("input-source.list", [:])
+        case "macctl_input_source_select":
+            return ("input-source.select", ["id": sv("id") ?? .string("")])
 
         default:
             throw MCPError.unknownTool(name)

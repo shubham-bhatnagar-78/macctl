@@ -1,3 +1,4 @@
+@preconcurrency import AppKit
 import Foundation
 import MacCtlKit
 @preconcurrency import ApplicationServices
@@ -21,6 +22,12 @@ func dispatch(
     file: FileActor,
     eventKit: EventKitActor,
     contacts: ContactsActor,
+    window: WindowActor,
+    process: ProcessActor,
+    spotlight: SpotlightActor,
+    share: ShareActor,
+    inputSource: InputSourceActor,
+    screen: ScreenActor,
     sessionID: String
 ) async throws -> [String: JSONValue] {
 
@@ -714,6 +721,216 @@ func dispatch(
             phone: params["phone"]?.stringValue,
             organization: params["organization"]?.stringValue)
         return layer("framework-api", ["id":.string(c.id),"fullName":.string(c.fullName)])
+
+    // MARK: - window.*
+
+    case "window.list":
+        let bundleID = params["bundleID"]?.stringValue
+        let windows = await window.listWindows(app: bundleID)
+        return layer("window", [
+            "windows": .array(windows.map { w in
+                .object(["windowID": .int(Int(w.windowID)), "title": .string(w.title),
+                         "appName": .string(w.appName), "bundleID": .string(w.bundleID),
+                         "pid": .int(Int(w.pid)),
+                         "x": .double(w.frame.minX), "y": .double(w.frame.minY),
+                         "width": .double(w.frame.width), "height": .double(w.frame.height),
+                         "screenIndex": .int(w.screenIndex)])
+            }),
+            "count": .int(windows.count),
+        ])
+
+    case "window.move":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
+              case .double(let x) = params["x"], case .double(let y) = params["y"]
+        else { throw RPCError.operationFailed("window.move requires windowID+x+y") }
+        await window.move(windowID: wid, x: x, y: y)
+        return layer("window")
+
+    case "window.resize":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
+              case .double(let w) = params["width"], case .double(let h) = params["height"]
+        else { throw RPCError.operationFailed("window.resize requires windowID+width+height") }
+        await window.resize(windowID: wid, width: w, height: h)
+        return layer("window")
+
+    case "window.set-bounds":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }),
+              case .double(let x) = params["x"], case .double(let y) = params["y"],
+              case .double(let w) = params["width"], case .double(let h) = params["height"]
+        else { throw RPCError.operationFailed("window.set-bounds requires windowID+x+y+width+height") }
+        await window.setBounds(windowID: wid, x: x, y: y, w: w, h: h)
+        return layer("window")
+
+    case "window.focus":
+        guard let pid = params["pid"]?.intValue.map({ pid_t($0) }) else {
+            throw RPCError.operationFailed("window.focus requires pid")
+        }
+        await window.focus(pid: pid)
+        return layer("window")
+
+    case "window.minimize":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }) else {
+            throw RPCError.operationFailed("window.minimize requires windowID")
+        }
+        await window.minimize(windowID: wid)
+        return layer("window")
+
+    case "window.unminimize":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }) else {
+            throw RPCError.operationFailed("window.unminimize requires windowID")
+        }
+        await window.unminimize(windowID: wid)
+        return layer("window")
+
+    case "window.fullscreen":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }) else {
+            throw RPCError.operationFailed("window.fullscreen requires windowID")
+        }
+        let enabled = params["enabled"] != .bool(false)
+        await window.setFullScreen(windowID: wid, enabled: enabled)
+        return layer("window")
+
+    case "window.tile-left":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }) else {
+            throw RPCError.operationFailed("window.tile-left requires windowID")
+        }
+        await window.tileLeft(windowID: wid)
+        return layer("window")
+
+    case "window.tile-right":
+        guard let wid = params["windowID"]?.intValue.map({ CGWindowID($0) }) else {
+            throw RPCError.operationFailed("window.tile-right requires windowID")
+        }
+        await window.tileRight(windowID: wid)
+        return layer("window")
+
+    // MARK: - process.*
+
+    case "process.list":
+        let filter = params["filter"]?.stringValue
+        let procs  = await process.list(filter: filter)
+        return layer("native-api", [
+            "processes": .array(procs.map { p in
+                .object(["pid": .int(Int(p.pid)), "name": .string(p.name),
+                         "status": .string(p.status), "memoryMB": .double(p.memoryMB),
+                         "parentPID": .int(Int(p.parentPID)), "isApp": .bool(p.isApp)])
+            }),
+            "count": .int(procs.count),
+        ])
+
+    case "process.kill":
+        let force = params["force"] == .bool(true)
+        if case .int(let pid) = params["pid"] {
+            try await process.kill(pid: pid_t(pid), force: force)
+        } else if case .string(let name) = params["name"] {
+            try await process.kill(name: name, force: force)
+        } else { throw RPCError.operationFailed("process.kill requires pid or name") }
+        return layer("native-api")
+
+    case "process.is-running":
+        guard case .string(let name) = params["name"] else {
+            throw RPCError.operationFailed("process.is-running requires name")
+        }
+        return layer("native-api", ["isRunning": .bool(await process.isRunning(name: name))])
+
+    // MARK: - spotlight.*
+
+    case "spotlight.search":
+        guard case .string(let query) = params["query"] else {
+            throw RPCError.operationFailed("spotlight.search requires query")
+        }
+        let max = params["limit"]?.intValue ?? 50
+        let results = await spotlight.search(query: query, maxResults: max)
+        let fmt = ISO8601DateFormatter()
+        return layer("spotlight", [
+            "results": .array(results.map { r in
+                var obj: [String: JSONValue] = [
+                    "path": .string(r.path), "name": .string(r.name),
+                    "kind": .string(r.kind), "size": .int(Int(r.size)),
+                ]
+                if let d = r.modifiedDate { obj["modifiedDate"] = .string(fmt.string(from: d)) }
+                return .object(obj)
+            }),
+            "count": .int(results.count),
+        ])
+
+    case "spotlight.find-files":
+        guard case .string(let name) = params["name"] else {
+            throw RPCError.operationFailed("spotlight.find-files requires name")
+        }
+        let dir = params["directory"]?.stringValue
+        let results = await spotlight.findFiles(name: name, in: dir)
+        return layer("spotlight", [
+            "results": .array(results.map { .string($0.path) }),
+            "count":   .int(results.count),
+        ])
+
+    // MARK: - share.*
+
+    case "share.list-services":
+        let services = await share.availableServices()
+        return layer("native-api", [
+            "services": .array(services.map { .string($0.title) }),
+        ])
+
+    case "share.url":
+        guard case .string(let urlStr) = params["url"],
+              let url = URL(string: urlStr) ?? URL(fileURLWithPath: urlStr)
+                as URL?
+        else { throw RPCError.operationFailed("share.url requires url") }
+        let svcName = NSSharingService.Name(params["service"]?.stringValue ?? "com.apple.share.Mail.compose")
+        try await share.shareURLs([url], via: svcName)
+        return layer("native-api")
+
+    // MARK: - input-source.*
+
+    case "input-source.current":
+        let src = await inputSource.current()
+        if let s = src {
+            return layer("native-api", ["id":.string(s.id),"name":.string(s.localizedName)])
+        }
+        return layer("native-api", ["id":.null,"name":.null])
+
+    case "input-source.list":
+        let sources = await inputSource.list()
+        return layer("native-api", [
+            "sources": .array(sources.map { s in
+                .object(["id":.string(s.id),"name":.string(s.localizedName),
+                         "isSelected":.bool(s.isSelected),"category":.string(s.category)])
+            }),
+        ])
+
+    case "input-source.select":
+        guard case .string(let id) = params["id"] ?? params["name"] else {
+            throw RPCError.operationFailed("input-source.select requires id or name")
+        }
+        // Try exact id first, then name match
+        do { try await inputSource.select(id: id) }
+        catch { try await inputSource.selectByName(id) }
+        return layer("native-api")
+
+    // MARK: - screen.*
+
+    case "screen.list":
+        let screens = await screen.list()
+        let fmt2 = ISO8601DateFormatter(); _ = fmt2
+        return layer("native-api", [
+            "screens": .array(screens.map { s in
+                .object(["index":.int(s.index),"name":.string(s.name),
+                         "width":.int(s.width),"height":.int(s.height),
+                         "scaleFactor":.double(s.scaleFactor),"isMain":.bool(s.isMain),
+                         "brightness":.double(Double(s.brightness))])
+            }),
+            "count": .int(screens.count),
+        ])
+
+    case "screen.set-brightness":
+        guard case .double(let value) = params["value"] else {
+            throw RPCError.operationFailed("screen.set-brightness requires value 0.0-1.0")
+        }
+        let idx = params["screenIndex"]?.intValue ?? 0
+        await screen.setBrightness(Float(value), screenIndex: idx)
+        return layer("native-api", ["brightness": .double(value)])
 
     default:
         throw RPCError(code: 5, message: "Unknown method: \(method)")
