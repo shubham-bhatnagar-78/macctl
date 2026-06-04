@@ -6,31 +6,32 @@ import Foundation
 struct RetryEngineTests {
     @Test func succeedsFirstAttempt() async throws {
         nonisolated(unsafe) var calls = 0
-        let result = try await RetryEngine.run {
+        let r = try await RetryEngine.run {
             calls += 1
             return 42
         }
-        #expect(result == 42)
+        #expect(r.value == 42)
+        #expect(r.attempts == 1)
         #expect(calls == 1)
     }
 
     @Test func retriesOnFailureThenSucceeds() async throws {
         nonisolated(unsafe) var calls = 0
-        let result: String = try await RetryEngine.run(
+        let r: RetryResult<String> = try await RetryEngine.run(
             attempts: 3, delays: [.milliseconds(1), .milliseconds(1)]
         ) {
             calls += 1
             if calls < 3 { throw RPCError.elementNotFound("btn", app: "test") }
             return "ok"
         }
-        #expect(result == "ok")
-        #expect(calls == 3)
+        #expect(r.value == "ok")
+        #expect(r.attempts == 3)
     }
 
     @Test func exhaustsAttemptsAndThrows() async throws {
         nonisolated(unsafe) var calls = 0
         do {
-            let _: Int = try await RetryEngine.run(
+            let _: RetryResult<Int> = try await RetryEngine.run(
                 attempts: 3, delays: [.milliseconds(1), .milliseconds(1)]
             ) {
                 calls += 1
@@ -46,7 +47,7 @@ struct RetryEngineTests {
     @Test func doesNotRetryPermissionErrors() async throws {
         nonisolated(unsafe) var calls = 0
         do {
-            let _: Int = try await RetryEngine.run(
+            let _: RetryResult<Int> = try await RetryEngine.run(
                 attempts: 3, delays: [.milliseconds(1), .milliseconds(1)]
             ) {
                 calls += 1
@@ -59,7 +60,7 @@ struct RetryEngineTests {
     @Test func doesNotRetryInvalidArgErrors() async throws {
         nonisolated(unsafe) var calls = 0
         do {
-            let _: Int = try await RetryEngine.run(
+            let _: RetryResult<Int> = try await RetryEngine.run(
                 attempts: 3, delays: [.milliseconds(1), .milliseconds(1)]
             ) {
                 calls += 1
