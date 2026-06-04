@@ -36,9 +36,9 @@ public actor InputActor {
         down.flags = .maskCommand
         up.flags   = .maskCommand
         down.postToPid(pid)
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(2))   // 2ms: enough for keydown registration
         up.postToPid(pid)
-        try await Task.sleep(for: .milliseconds(100))
+        try await Task.sleep(for: .milliseconds(10))  // 10ms: app processes paste event
         pb.clearContents()
         if let prev = previous { pb.setString(prev, forType: .string) }
     }
@@ -53,9 +53,9 @@ public actor InputActor {
             down.keyboardSetUnicodeString(stringLength: 1, unicodeString: &uc)
             up.keyboardSetUnicodeString(stringLength: 1, unicodeString: &uc)
             down.postToPid(pid)
-            try await Task.sleep(for: .milliseconds(5))
-            up.postToPid(pid)
             try await Task.sleep(for: .milliseconds(2))
+            up.postToPid(pid)
+            try await Task.sleep(for: .milliseconds(1))
         }
     }
 

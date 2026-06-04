@@ -107,7 +107,8 @@ func dispatch(
                 return layer("ax-setvalue", ["chars": .int(text.count)])
             }
         }
-        if text.count > 20 {
+        // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
+        if text.count >= 2 {
             try await input.pasteText(text, pid: pid)
             return layer("input-paste", ["chars": .int(text.count)])
         }

@@ -40,7 +40,7 @@ public actor KeyboardActor {
         else { throw KeyboardError.eventCreationFailed }
         if !modifiers.isEmpty { down.flags = modifiers; up.flags = modifiers }
         down.postToPid(pid)
-        try await Task.sleep(for: .milliseconds(10))
+        try await Task.sleep(for: .milliseconds(1))  // 1ms: enough for system to register keydown
         up.postToPid(pid)
     }
 
@@ -53,7 +53,7 @@ public actor KeyboardActor {
         up.keyboardSetUnicodeString(stringLength: 1, unicodeString: &uc)
         if !modifiers.isEmpty { down.flags = modifiers; up.flags = modifiers }
         down.postToPid(pid)
-        try await Task.sleep(for: .milliseconds(10))
+        try await Task.sleep(for: .milliseconds(1))
         up.postToPid(pid)
     }
 
