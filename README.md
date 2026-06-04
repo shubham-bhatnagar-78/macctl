@@ -49,6 +49,26 @@ macctl window tile-left --id 12345
 
 ## Performance
 
+### CLI Spawn Latency (warm, real measured)
+
+| Tool | Spawn (warm) | Binary size | MCP | EventKit | Streaming |
+|---|---|---|---|---|---|
+| **macctl (C)** | **6ms** | 67KB | ✅ 35 tools | ✅ | ✅ |
+| Hammerspoon | 10ms | 30MB | ❌ | ❌ | ❌ |
+| Swift macctl | 25ms | 4.6MB | ✅ 35 tools | ✅ | ✅ |
+| Peekaboo | 146ms | 12MB | ✅ | ❌ | ❌ |
+
+### MCP Tool Call Latency (persistent process, 20 sequential calls)
+
+| Server | Per call | Success |
+|---|---|---|
+| **macctl-mcp (C)** | **24.6ms** | 20/20 |
+| macctl-mcp (Swift) | 27.5ms | 20/20 |
+
+MCP servers run as persistent processes — spawn cost is one-time. Per-call overhead is socket IPC only.
+
+### Daemon-Internal Latency (after spawn, socket only)
+
 All timings are **daemon-internal latency** (not including process spawn overhead). Daemon starts once at login; subsequent calls are socket IPC (~0.5ms overhead).
 
 | Operation | P50 | P95 | How |
@@ -72,12 +92,18 @@ All timings are **daemon-internal latency** (not including process spawn overhea
 # Clone and build
 git clone https://github.com/YOUR_USERNAME/macctl
 cd macctl
-swift build -c release
 
-# Install binaries
-sudo cp .build/release/macctl /usr/local/bin/
+# Build Swift daemon (the engine)
+swift build -c release --target macctl-daemon
+
+# Build C thin clients (CLI + MCP — ultra-fast spawn)
+clang -O2 -o .build/macctl Sources/macctl-c/main.c
+clang -O2 -o .build/macctl-mcp Sources/macctl-c/mcp.c
+
+# Install
+sudo cp .build/macctl /usr/local/bin/
+sudo cp .build/macctl-mcp /usr/local/bin/
 sudo cp .build/release/macctl-daemon /usr/local/bin/
-sudo cp .build/release/macctl-mcp /usr/local/bin/
 ```
 
 ### Start the daemon
@@ -277,9 +303,31 @@ BuiltinShortcutRegistry covers all 59 Apple-shipped apps. O(1) dictionary lookup
 ```bash
 git clone https://github.com/YOUR_USERNAME/macctl
 cd macctl
+
+# Swift daemon (the engine — all 21 actors, system APIs)
 swift build               # debug
-swift build -c release    # release (smaller, faster)
-swift test                # run test suite
+swift build -c release    # release
+
+# C thin clients (CLI + MCP — 6ms spawn, 67KB binaries)
+clang -O2 -o .build/macctl Sources/macctl-c/main.c
+clang -O2 -o .build/macctl-mcp Sources/macctl-c/mcp.c
+
+# Tests
+swift test                # 122 tests
+```
+
+### Architecture
+
+```
+macctl (C, 67KB)          macctl-mcp (C, 67KB)
+     │ Unix socket JSON-RPC       │
+     └──────────────┬─────────────┘
+                    │
+          macctl-daemon (Swift, 4MB)
+          21 actors: AX, Input, Keyboard,
+          AppLifecycle, System, File, EventKit,
+          Contacts, Notes, Window, Process,
+          Spotlight, Screen, Clipboard, Network...
 ```
 
 ---
