@@ -28,6 +28,11 @@ struct MacCtl: ParsableCommand {
             CalendarCommand.self,
             RemindersCommand.self,
             ContactsCommand.self,
+            WindowCommand.self,
+            ProcessCommand.self,
+            SpotlightCommand.self,
+            ScreenCommand.self,
+            InputSourceCommand.self,
         ],
     )
 }

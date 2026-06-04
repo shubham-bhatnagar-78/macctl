@@ -21,6 +21,12 @@ let shellActor       = ShellActor()
 let fileActor        = FileActor()
 let eventKitActor    = EventKitActor()
 let contactsActor    = ContactsActor()
+let windowActor      = WindowActor()
+let processActor     = ProcessActor()
+let spotlightActor   = SpotlightActor()
+let shareActor       = ShareActor()
+let inputSourceActor = InputSourceActor()
+let screenActor      = ScreenActor()
 
 await daemonLifecycle.start()
 
@@ -50,6 +56,8 @@ let middlewarePipeline = buildMiddlewareChain(
             clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
             shell: shellActor, file: fileActor,
             eventKit: eventKitActor, contacts: contactsActor,
+            window: windowActor, process: processActor, spotlight: spotlightActor,
+            share: shareActor, inputSource: inputSourceActor, screen: screenActor,
             sessionID: sessionID
         )
     }
