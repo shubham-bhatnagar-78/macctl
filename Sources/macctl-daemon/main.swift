@@ -35,7 +35,7 @@ await lifecycleActor.preResolveBundleURLs(for: appleApps)
 
 let sessionID = daemonLifecycle.sessionID
 
-let server = SocketServer { data in
+let server = SocketServer(rpc: { data in
     guard let request = try? JSONDecoder().decode(RPCRequest.self, from: data) else {
         let errPayload: [String: JSONValue] = [
             "jsonrpc": .string("2.0"), "id": .string("?"),
@@ -98,7 +98,10 @@ let server = SocketServer { data in
         ]
         return try! JSONEncoder().encode(payload)
     }
-}
+}, subscribe: { topic, params in
+    // StreamManager created in Task 2 — stub returns empty stream until then
+    AsyncStream { $0.finish() }
+})
 
 try server.start()
 logger.info("macctl-daemon ready. Socket: \(SocketServer.defaultSocketPath)")
