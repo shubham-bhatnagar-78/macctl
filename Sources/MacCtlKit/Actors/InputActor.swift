@@ -5,6 +5,7 @@ import AppKit
 /// CGEvent-based input synthesis targeting specific PIDs (background-safe).
 /// Smart routing is handled by the dispatcher — InputActor is pure CGEvent.
 public actor InputActor {
+    public init() {}
 
     // MARK: - Click
 

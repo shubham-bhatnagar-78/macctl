@@ -3,6 +3,7 @@ import AppKit
 import Logging
 
 public actor KeyboardActor {
+    public init() {}
     private let logger = Logger(label: "macctl.keyboard")
 
     // Compile-time virtual key code map
