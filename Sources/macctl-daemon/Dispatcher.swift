@@ -330,17 +330,15 @@ func dispatch(
         guard case .string(let domain) = params["domain"],
               case .string(let key)    = params["key"]
         else { throw RPCError.operationFailed("defaults.read requires domain + key") }
-        // Try string first, then bool, then int
-        if let s = await defaults.readString(domain: domain, key: key) {
-            return layer("native-api", ["value": .string(s), "type": .string("string")])
+        let (valStr, typeName) = await defaults.readTyped(domain: domain, key: key)
+        let jsonVal: JSONValue = switch typeName {
+        case "bool":   .bool(valStr == "true")
+        case "int":    .int(Int(valStr) ?? 0)
+        case "double": .double(Double(valStr) ?? 0)
+        case "null":   .null
+        default:       .string(valStr)
         }
-        if let b = await defaults.readBool(domain: domain, key: key) {
-            return layer("native-api", ["value": .bool(b), "type": .string("bool")])
-        }
-        if let i = await defaults.readInt(domain: domain, key: key) {
-            return layer("native-api", ["value": .int(i), "type": .string("int")])
-        }
-        return layer("native-api", ["value": .null, "type": .string("null")])
+        return layer("native-api", ["value": jsonVal, "type": .string(typeName)])
 
     case "defaults.write":
         guard case .string(let domain) = params["domain"],

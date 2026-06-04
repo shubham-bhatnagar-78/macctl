@@ -64,4 +64,26 @@ public actor DefaultsActor {
     public func exists(domain: String, key: String) -> Bool {
         UserDefaults(suiteName: domain)?.object(forKey: key) != nil
     }
+
+    /// Read value with correct type detection using NSNumber.objCType.
+    /// Returns (value as String, type name: "string"|"int"|"double"|"bool"|"null").
+    public func readTyped(domain: String, key: String) -> (value: String, type: String) {
+        guard let d = UserDefaults(suiteName: domain),
+              let obj = d.object(forKey: key) else { return ("", "null") }
+        if let n = obj as? NSNumber {
+            let t = String(cString: n.objCType)
+            switch t {
+            case "c", "B":           // char = bool in ObjC
+                return (n.boolValue ? "true" : "false", "bool")
+            case "i", "l", "q", "s", "I", "L", "Q", "S":
+                return ("\(n.intValue)", "int")
+            case "d", "f":
+                return ("\(n.doubleValue)", "double")
+            default:
+                return ("\(n)", "number")
+            }
+        }
+        if let s = obj as? String { return (s, "string") }
+        return ("\(obj)", "other")
+    }
 }
