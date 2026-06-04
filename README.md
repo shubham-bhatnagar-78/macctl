@@ -45,36 +45,6 @@ macctl spotlight search "invoice 2024"
 macctl window tile-left --id 12345
 ```
 
-### vs Competitors
-
-| Feature | macctl | Hammerspoon | Peekaboo | cliclick | Keyboard Maestro |
-|---|---|---|---|---|---|
-| Click / type / key | ✅ | ✅ | ✅ | ✅ | ✅ |
-| See UI elements (AX tree) | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Screenshot | ✅ | ✅ | ✅ | ❌ | ✅ |
-| App launch/quit | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Window move/resize/tile | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Process list/kill | ✅ | ✅ | ❌ | ❌ | ❌ |
-| System volume/brightness/WiFi/BT | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Clipboard (all types) | ✅ | ✅ | ❌ | ❌ | ✅ |
-| File read/write/move/copy | ✅ | ✅ | ❌ | ❌ | ✅ |
-| iCloud Drive (eviction-aware) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| File tags (xattr, 0.1ms) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Calendar + Reminders (EventKit) | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Contacts (ContactsKit) | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Notes (AppleScript) | ✅ | ❌ | ❌ | ❌ | ✅ |
-| Spotlight search | ✅ | ✅ | ❌ | ❌ | ✅ |
-| NSUserDefaults read/write | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Screen lock / caffeinate | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Keyboard input source | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Live file watching (kqueue) | ✅ | ✅ | ❌ | ❌ | ❌ |
-| App lifecycle stream | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Shell execution | ✅ | ✅ | ❌ | ❌ | ✅ |
-| MCP server (LLM tool use) | ✅ 35 tools | ❌ | ✅ limited | ❌ | ❌ |
-| Builtin shortcut registry (59 apps) | ✅ O(1) | ❌ | ❌ | ❌ | ❌ |
-| Swift 6 strict concurrency | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Open source | ✅ AGPL | ✅ MIT | ✅ MIT | ✅ MIT | ❌ paid |
-
 ---
 
 ## Performance
@@ -96,18 +66,20 @@ macctl window tile-left --id 12345
 
 MCP server runs as a persistent process — spawn is one-time. Per-call cost is socket IPC only (~1.5ms after first connect).
 
-### Operation Latency
+### Operation Latency vs Competitors
 
-| Operation | P50 | P95 | Implementation |
-|---|---|---|---|
-| Keyboard shortcut | **2.2ms** | 2.3ms | BuiltinShortcutRegistry O(1) |
-| Type text | **0.5ms** | 0.8ms | AX `setValue` |
-| App list | **0.4ms** | 4ms | NSWorkspace |
-| System status (vol/WiFi/BT) | **1.4ms** | 4ms | CoreAudio/CoreWLAN/IOKit |
-| File read/write | **0.1–0.8ms** | 1.5ms | FileManager |
-| See UI elements | **11ms** | 20ms | AX focused window |
-| Screenshot | **60ms** | 110ms | ScreenCaptureKit warm |
-| Calendar events | **28ms** | 40ms | EventKit |
+All times in ms. macctl uses daemon socket IPC; competitors re-spawn per call.
+
+| Operation | macctl | Hammerspoon | Peekaboo | cliclick |
+|---|---|---|---|---|
+| App list | **0.4** | 18 | 219 | N/A |
+| See UI elements | **11** | 18 | 707 | N/A |
+| Keyboard shortcut | **2.2** | 18 | N/A | N/A |
+| System status | **1.4** | 24 | N/A | N/A |
+| Type text | **0.5** | ~18 | N/A | ~18 |
+| Screenshot | **60** | ~80 | ~200 | N/A |
+| Calendar events | **28** | N/A | N/A | N/A |
+| File read/write | **0.1–0.8** | ~5 | N/A | N/A |
 
 ---
 
