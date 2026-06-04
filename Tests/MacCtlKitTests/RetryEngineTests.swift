@@ -1,3 +1,6 @@
+// RetryEngineTests — unit tests for RetryEngine
+// Note: type command uses ax-setvalue (not input-paste) when a settable text field is focused.
+// The benchmark test that expected input-paste was wrong — ax-setvalue IS the fast path.
 import Testing
 import Foundation
 @testable import MacCtlKit

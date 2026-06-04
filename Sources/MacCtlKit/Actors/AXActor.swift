@@ -193,6 +193,30 @@ public actor AXActor {
         guard let element = elementCache[id] else { return }
         AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, true as CFBoolean)
     }
+
+    /// Returns element ID for the currently focused UI element in the app.
+    public func focusedElementID(pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &ref) == .success,
+              let element = ref else { return nil }
+        let id = nextID()
+        elementCache[id] = (element as! AXUIElement)
+        return id
+    }
+
+    /// Press using AXClick if AXPress fails (e.g. text areas, links).
+    public func click(id: String) throws {
+        guard let element = elementCache[id] else { throw AXActorError.elementNotFound }
+        var result = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        if result != .success {
+            result = AXUIElementPerformAction(element, kAXPickAction as CFString)
+        }
+        // Some elements (text areas) just need focus, not press
+        if result != .success {
+            AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, true as CFBoolean)
+        }
+    }
 }
 
 // MARK: - Supporting types
