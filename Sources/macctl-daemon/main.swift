@@ -99,8 +99,7 @@ let server = SocketServer(rpc: { data in
         return try! JSONEncoder().encode(payload)
     }
 }, subscribe: { topic, params in
-    // StreamManager created in Task 2 — stub returns empty stream until then
-    AsyncStream { $0.finish() }
+    StreamManager.stream(for: topic, params: params)
 })
 
 try server.start()
