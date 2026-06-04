@@ -49,7 +49,7 @@ macctl window tile-left --id 12345
 
 ## Performance
 
-### CLI Spawn Latency (warm median, 10 runs)
+### Feature Parity
 
 | Tool | Spawn | Binary | MCP | Calendar/Reminders | Contacts | Files | Streaming | Spotlight |
 |---|---|---|---|---|---|---|---|---|
