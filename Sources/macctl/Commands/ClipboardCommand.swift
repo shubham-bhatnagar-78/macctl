@@ -15,14 +15,16 @@ struct ClipboardCommand: ParsableCommand {
 
     struct Write: ParsableCommand {
         static let configuration = CommandConfiguration(commandName: "write",
-            abstract: "Write to clipboard")
-        @Option(name: .long, help: "Text to write") var text: String?
+            abstract: "Write to clipboard (text, HTML, or file)")
+        @Option(name: .long, help: "Plain text to write") var text: String?
+        @Option(name: .long, help: "HTML to write") var html: String?
         @Option(name: .long, help: "File path to write") var file: String?
         func run() throws {
             var params: [String: JSONValue] = [:]
-            if let t = text       { params["text"]  = .string(t) }
+            if let h = html       { params["html"]  = .string(h) }
+            else if let t = text  { params["text"]  = .string(t) }
             else if let f = file  { params["files"] = .array([.string(f)]) }
-            else { throw ValidationError("Provide --text or --file") }
+            else { throw ValidationError("Provide --text, --html, or --file") }
             try rpc(method: "clipboard.write", params: params)
         }
     }

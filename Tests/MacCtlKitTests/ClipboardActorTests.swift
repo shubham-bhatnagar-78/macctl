@@ -52,6 +52,16 @@ struct ClipboardActorTests {
         #expect(after > before)
     }
 
+    @Test func htmlTypeRoundTrip() async throws {
+        let actor = ClipboardActor(pasteboard: makePasteboard())
+        await actor.write(.html("<strong>bold</strong>"))
+        let html = await actor.readHTML()
+        #expect(html == "<strong>bold</strong>")
+        // Also has plain text fallback
+        let text = await actor.readText()
+        #expect(text != nil)  // stripped HTML as plaintext
+    }
+
     @Test func readReturnsCorrectType() async throws {
         let actor = ClipboardActor(pasteboard: makePasteboard())
         await actor.writeText("typed text")

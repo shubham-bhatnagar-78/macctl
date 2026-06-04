@@ -4,6 +4,13 @@ import Foundation
 
 @Suite("SystemStateActor")
 struct SystemStateActorTests {
+    @Test func brightnessReadNonNegative() async throws {
+        let actor = SystemStateActor()
+        let b = await actor.brightness()
+        // May be 0 on external monitors without backlight — just check non-negative
+        #expect(b >= 0.0 && b <= 1.0)
+    }
+
     @Test func getVolumeReturnsValidRange() async throws {
         let actor = SystemStateActor()
         let vol = await actor.volume()

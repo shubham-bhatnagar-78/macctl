@@ -281,6 +281,10 @@ func dispatch(
         }
 
     case "clipboard.write":
+        if case .string(let html) = params["html"] {
+            await clipboard.write(.html(html))
+            return layer("native-api", ["written": .string("html")])
+        }
         if case .string(let text) = params["text"] {
             await clipboard.writeText(text)
             return layer("native-api", ["written": .string("text")])
