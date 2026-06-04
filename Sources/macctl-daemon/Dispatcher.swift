@@ -93,11 +93,16 @@ func dispatch(
         guard let pid = await lifecycle.pid(for: bid) else {
             throw RPCError.appNotRunning(bid)
         }
-        // Smart routing: AX setValue (1-2ms) → paste (3-5ms) → CGEvent (slow)
+        // Smart routing with retry: AX setValue (1-2ms) → paste (3-5ms) → CGEvent (slow)
         if case .string(let query) = params["query"] {
-            let axApp = await ax.appElement(pid: pid)
-            if let eid = await ax.findElementID(query: query, in: axApp),
-               await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
+            let eid = try? await RetryEngine.run {
+                let axApp = await ax.appElement(pid: pid)
+                guard let id = await ax.findElementID(query: query, in: axApp) else {
+                    throw RPCError.elementNotFound(query, app: bid)
+                }
+                return id
+            }
+            if let eid, await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
                 try await ax.setValue(text, forID: eid)
                 return layer("ax-setvalue", ["chars": .int(text.count)])
             }
@@ -119,11 +124,17 @@ func dispatch(
             throw RPCError.appNotRunning(bid)
         }
         if case .string(let query) = params["query"] {
-            let axApp = await ax.appElement(pid: pid)
-            guard let eid = await ax.findElementID(query: query, in: axApp) else {
-                throw RPCError.elementNotFound(query, app: bid)
+            // RetryEngine: retry on element-not-found (UI may still be loading)
+            let eid = try await RetryEngine.run(attempts: 3) {
+                let axApp = await ax.appElement(pid: pid)
+                guard let id = await ax.findElementID(query: query, in: axApp) else {
+                    throw RPCError.elementNotFound(query, app: bid)
+                }
+                return id
             }
-            try await ax.press(id: eid)
+            try await RetryEngine.run(attempts: 2) {
+                try await ax.press(id: eid)
+            }
             return layer("ax-press", ["elementId": .string(eid)])
         }
         if case .double(let x) = params["x"], case .double(let y) = params["y"] {
