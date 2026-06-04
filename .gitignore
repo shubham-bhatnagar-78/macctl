@@ -10,3 +10,4 @@ bttype*
 *.scratch
 *.tmp
 .DS_Store
+docs/superpowers/
