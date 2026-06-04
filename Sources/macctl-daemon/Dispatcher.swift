@@ -94,20 +94,19 @@ func dispatch(
             throw RPCError.appNotRunning(bid)
         }
         // Smart routing: AX setValue (1-2ms) → paste (12ms) → CGEvent (slow)
-        if case .string(let query) = params["query"] {
-            let result = try? await RetryEngine.run(attempts: 3) {
-                let axApp = await ax.appElement(pid: pid)
-                guard let id = await ax.findElementID(query: query, in: axApp) else {
-                    throw RPCError.elementNotFound(query, app: bid)
-                }
-                return id
-            }
-            if let eid = result?.value,
-               await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
-                try await ax.setValue(text, forID: eid)
-                return layer("ax-setvalue", ["chars": .int(text.count),
-                                             "_retries": .int((result?.attempts ?? 1) - 1)])
-            }
+        // Try focused element first (fastest: no search needed)
+        var settableEID: String? = await ax.focusedElementID(pid: pid)
+
+        // If query given and focused element not settable, search by query
+        if case .string(let query) = params["query"], settableEID == nil {
+            let axApp = await ax.appElement(pid: pid)
+            settableEID = await ax.findElementID(query: query, in: axApp)
+        }
+
+        if let eid = settableEID,
+           await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
+            try await ax.setValue(text, forID: eid)
+            return layer("ax-setvalue", ["chars": .int(text.count)])
         }
         // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
         if text.count >= 2 {
@@ -135,9 +134,9 @@ func dispatch(
             } catch {
                 throw RPCError.elementNotFound(query, app: bid)
             }
-            // RetryEngine: retry the press in case of transient AX failure
+            // RetryEngine: retry click (press → click → focus fallback inside ax.click)
             let pressResult = try await RetryEngine.run(attempts: 2) {
-                try await ax.press(id: eid)
+                try await ax.click(id: eid)
             }
             return layer("ax-press", ["elementId": .string(eid),
                                       "_retries": .int(pressResult.attempts - 1)])
