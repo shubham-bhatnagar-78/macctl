@@ -219,15 +219,16 @@ enum ToolRegistry {
                 properties: ["id": s("Input source ID or partial name (e.g. U.S., Japanese)")], required: ["id"]),
     ]
 
-    // MARK: - Execute tool call
+    // MARK: - Persistent connection (eliminates per-call connect overhead for LLM loops)
+
+    private static let sharedClient = PersistentMCPClient()
 
     static func call(name: String, args: [String: Any]) throws -> Any {
         let (method, params) = try buildRPC(name: name, args: args)
         let request = RPCRequest(id: UUID().uuidString, method: method, params: params)
         let data = try JSONEncoder().encode(request)
-        let client = SocketClient()
         let responseData: Data
-        do { responseData = try client.roundTrip(data) }
+        do { responseData = try sharedClient.send(data) }
         catch SocketError.connectFailed { throw MCPError.daemonNotRunning }
 
         guard let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any]
