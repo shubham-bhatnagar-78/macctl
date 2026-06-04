@@ -125,14 +125,15 @@ func dispatch(
             throw RPCError.appNotRunning(bid)
         }
         if case .string(let query) = params["query"] {
-            // RetryEngine: retry on element-not-found (UI may still be loading)
-            let eid = try await RetryEngine.run(attempts: 3) {
-                let axApp = await ax.appElement(pid: pid)
-                guard let id = await ax.findElementID(query: query, in: axApp) else {
-                    throw RPCError.elementNotFound(query, app: bid)
-                }
-                return id
+            let waitTimeout = Duration.seconds((params["timeout"]?.doubleValue ?? 3.0))
+            // WaitEngine: polls until element appears (handles loading UIs), max 3s
+            let eid: String
+            do {
+                eid = try await WaitEngine.waitForElement(query: query, in: pid, ax: ax, timeout: waitTimeout)
+            } catch {
+                throw RPCError.elementNotFound(query, app: bid)
             }
+            // RetryEngine: retry the press in case of transient AX failure
             try await RetryEngine.run(attempts: 2) {
                 try await ax.press(id: eid)
             }
