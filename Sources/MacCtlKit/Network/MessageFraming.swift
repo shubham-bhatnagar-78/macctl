@@ -12,8 +12,10 @@ public enum MessageFraming {
     /// Parse one message from buffer. Consumes bytes on success. Returns nil if incomplete.
     public static func parse(_ buffer: inout Data) throws -> Data? {
         guard buffer.count >= 4 else { return nil }
-        let length = buffer[0..<4].withUnsafeBytes {
-            $0.loadUnaligned(as: UInt32.self).bigEndian
+        // Use withUnsafeBytes to read length safely — avoids Data slice startIndex issues
+        // after removeFirst() which can leave a non-zero internal startIndex.
+        let length: UInt32 = buffer.withUnsafeBytes { ptr in
+            ptr.loadUnaligned(as: UInt32.self).bigEndian
         }
         guard length > 0, length <= 16_000_000 else {
             throw MessageFramingError.invalidLength(length)
@@ -21,7 +23,9 @@ public enum MessageFraming {
         let total = Int(4 + length)
         guard buffer.count >= total else { return nil }
         let message = Data(buffer[4..<total])
-        buffer.removeFirst(total)
+        // Reassign to a fresh Data to reset startIndex to 0, preventing the
+        // EXC_BREAKPOINT crash in _Representation.subscript.getter on subsequent calls.
+        buffer = buffer.count > total ? Data(buffer.suffix(from: total)) : Data()
         return message
     }
 }
