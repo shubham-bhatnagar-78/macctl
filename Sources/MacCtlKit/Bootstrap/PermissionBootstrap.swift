@@ -10,7 +10,7 @@ public actor PermissionBootstrap {
 
     public init() {}
 
-    public func status() -> Status {
+    public nonisolated func status() -> Status {
         Status(
             accessibility: AXIsProcessTrusted(),
             screenRecording: CGPreflightScreenCaptureAccess()

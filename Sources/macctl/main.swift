@@ -14,6 +14,7 @@ struct MacCtl: ParsableCommand {
             SeeCommand.self,
             AppCommand.self,
             ScreenshotCommand.self,
+            InstallCommand.self,
         ]
     )
 }
