@@ -22,6 +22,9 @@ let fileActor        = FileActor()
 
 await daemonLifecycle.start()
 
+// Register all Apple app adapters (O(59), ~2ms)
+await AppleAdapterRegistry.registerAll()
+
 // Pre-warm bundle URLs for frequently-used Apple apps
 let appleApps = [
     "com.apple.finder", "com.apple.Safari", "com.apple.Notes", "com.apple.mail",
