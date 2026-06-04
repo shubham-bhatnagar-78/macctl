@@ -3,3 +3,10 @@
 .DS_Store
 .firecrawl/
 .build/
+
+# Research/scratch files
+.firecrawl/
+bttype*
+*.scratch
+*.tmp
+.DS_Store
