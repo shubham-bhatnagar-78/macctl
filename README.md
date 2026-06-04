@@ -96,20 +96,20 @@ macctl window tile-left --id 12345
 
 MCP server runs as a persistent process — spawn is one-time. Per-call cost is socket IPC only (~1.5ms after first connect).
 
-### Operation Latency vs Competitors
+### Operation Latency
 
-All times in ms. macctl uses daemon socket IPC; competitors re-spawn per call.
+macctl uses daemon socket IPC — spawns once at login. Competitors re-spawn per call.
 
 | Operation | macctl | Hammerspoon | Peekaboo | cliclick |
 |---|---|---|---|---|
-| App list | **0.4** | 18 | 219 | N/A |
-| See UI elements | **11** | 18 | 707 | N/A |
-| Keyboard shortcut | **2.2** | 18 | N/A | N/A |
-| System status | **1.4** | 24 | N/A | N/A |
-| Type text | **0.5** | ~18 | N/A | ~18 |
-| Screenshot | **60** | ~80 | ~200 | N/A |
-| Calendar events | **28** | N/A | N/A | N/A |
-| File read/write | **0.1–0.8** | ~5 | N/A | N/A |
+| App list | **0.4ms** | 18ms | 219ms | N/A |
+| See UI elements | **11ms** | 18ms | 707ms | N/A |
+| Keyboard shortcut | **2.2ms** | 18ms | N/A | N/A |
+| System status | **1.4ms** | 24ms | N/A | N/A |
+| Type text | **0.5ms** | ~18ms | N/A | ~18ms |
+| Screenshot | **60ms** | ~80ms | ~200ms | N/A |
+| Calendar events | **28ms** | N/A | N/A | N/A |
+| File read/write | **0.1–0.8ms** | ~5ms | N/A | N/A |
 
 ---
 
