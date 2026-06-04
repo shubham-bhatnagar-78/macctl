@@ -56,17 +56,28 @@ public actor AXActor {
 
     // MARK: - Element search
 
-    /// Find first element matching query. Returns element ID registered in cache.
-    public func findElementID(query: String, in app: AXUIElement, maxDepth: Int = 10) -> String? {
-        guard let element = findRecursive(query: query.lowercased(), element: app, depth: maxDepth)
-        else { return nil }
+    /// Find first element matching query. Checks focused window first (fast), falls back to full tree.
+    /// Returns element ID registered in cache.
+    public func findElementID(query: String, in app: AXUIElement, maxDepth: Int = 6) -> String? {
+        let q = query.lowercased()
+        // Fast path: focused window only (same tree as `see`)
+        var focusedRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
+           let focused = focusedRef,
+           let element = findRecursive(query: q, element: focused as! AXUIElement, depth: maxDepth) {
+            let id = nextID()
+            elementCache[id] = element
+            return id
+        }
+        // Slow path: full app tree (multi-window apps, menu items, etc.)
+        guard let element = findRecursive(query: q, element: app, depth: maxDepth) else { return nil }
         let id = nextID()
         elementCache[id] = element
         return id
     }
 
     /// Internal: returns raw AXUIElement — only use within this actor.
-    func findElement(query: String, in app: AXUIElement, maxDepth: Int = 10) -> AXUIElement? {
+    func findElement(query: String, in app: AXUIElement, maxDepth: Int = 6) -> AXUIElement? {
         findRecursive(query: query.lowercased(), element: app, depth: maxDepth)
     }
 
