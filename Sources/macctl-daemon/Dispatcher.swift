@@ -18,6 +18,7 @@ func dispatch(
     network: NetworkActor,
     defaults: DefaultsActor,
     shell: ShellActor,
+    file: FileActor,
     sessionID: String
 ) async throws -> [String: JSONValue] {
 
@@ -425,6 +426,134 @@ func dispatch(
                              pid: pid, steps: steps)
         return layer("input-drag", ["from": .object(["x":.double(fx),"y":.double(fy)]),
                                     "to":   .object(["x":.double(tx),"y":.double(ty)])])
+
+    // MARK: - file.*
+
+    case "file.read":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.read requires path")
+        }
+        let content = try await file.read(path: path)
+        return layer("file-posix", ["content": .string(content), "bytes": .int(content.utf8.count)])
+
+    case "file.write":
+        guard case .string(let path)    = params["path"],
+              case .string(let content) = params["content"]
+        else { throw RPCError.operationFailed("file.write requires path + content") }
+        try await file.write(path: path, content: content)
+        return layer("file-posix", ["bytes": .int(content.utf8.count)])
+
+    case "file.copy":
+        guard case .string(let from) = params["from"],
+              case .string(let to)   = params["to"]
+        else { throw RPCError.operationFailed("file.copy requires from + to") }
+        try await file.copy(from: from, to: to)
+        return layer("file-posix")
+
+    case "file.move":
+        guard case .string(let from) = params["from"],
+              case .string(let to)   = params["to"]
+        else { throw RPCError.operationFailed("file.move requires from + to") }
+        try await file.move(from: from, to: to)
+        return layer("file-posix")
+
+    case "file.delete":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.delete requires path")
+        }
+        if params["trash"] == .bool(true) { try await file.trash(path: path) }
+        else                              { try await file.delete(path: path) }
+        return layer("file-posix")
+
+    case "file.mkdir":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.mkdir requires path")
+        }
+        try await file.mkdir(path: path)
+        return layer("file-posix")
+
+    case "file.exists":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.exists requires path")
+        }
+        return layer("file-posix", ["exists": .bool(file.exists(path: path))])
+
+    case "file.stat":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.stat requires path")
+        }
+        let info = try await file.stat(path: path)
+        let fmt = ISO8601DateFormatter()
+        return layer("file-posix", [
+            "path":         .string(info.path),
+            "name":         .string(info.name),
+            "size":         .int(Int(info.size)),
+            "isDirectory":  .bool(info.isDirectory),
+            "isSymlink":    .bool(info.isSymlink),
+            "exists":       .bool(info.exists),
+            "permissions":  .int(info.permissions),
+            "isICloud":     .bool(info.isICloud),
+            "iCloudReady":  .bool(info.iCloudDownloaded),
+            "modifiedAt":   info.modifiedAt.map { .string(fmt.string(from: $0)) } ?? .null,
+            "createdAt":    info.createdAt.map  { .string(fmt.string(from: $0)) } ?? .null,
+        ])
+
+    case "file.list":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.list requires path")
+        }
+        let items = try await file.list(path: path)
+        let list: [JSONValue] = items.map { item in
+            .object(["name": .string(item.name), "path": .string(item.path),
+                     "isDirectory": .bool(item.isDirectory), "size": .int(Int(item.size))])
+        }
+        return layer("file-posix", ["items": .array(list), "count": .int(list.count)])
+
+    case "file.tags":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.tags requires path")
+        }
+        let tags = try file.tags(path: path)
+        return layer("file-xattr", ["tags": .array(tags.map { .string($0) })])
+
+    case "file.set-tags":
+        guard case .string(let path) = params["path"],
+              case .array(let tagVals) = params["tags"]
+        else { throw RPCError.operationFailed("file.set-tags requires path + tags array") }
+        let tags = tagVals.compactMap { if case .string(let s) = $0 { return s } else { return nil } }
+        try file.setTags(tags, path: path)
+        return layer("file-xattr", ["tags": .array(tags.map { .string($0) })])
+
+    case "file.add-tags":
+        guard case .string(let path) = params["path"],
+              case .array(let tagVals) = params["tags"]
+        else { throw RPCError.operationFailed("file.add-tags requires path + tags array") }
+        let tags = tagVals.compactMap { if case .string(let s) = $0 { return s } else { return nil } }
+        try file.addTags(tags, path: path)
+        return layer("file-xattr")
+
+    case "file.reveal":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.reveal requires path")
+        }
+        await file.revealInFinder(path: path)
+        return layer("finder")
+
+    case "file.open":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.open requires path")
+        }
+        let appBundleID = params["app"]?.stringValue
+        try await file.open(path: path, withApp: appBundleID)
+        return layer("finder")
+
+    case "file.resolve-icloud":
+        guard case .string(let path) = params["path"] else {
+            throw RPCError.operationFailed("file.resolve-icloud requires path")
+        }
+        let timeoutSecs = params["timeout"]?.intValue ?? 30
+        let resolved = try await file.resolveICloud(path: path, timeoutSecs: timeoutSecs)
+        return layer("icloud", ["resolvedPath": .string(resolved)])
 
     default:
         throw RPCError(code: 5, message: "Unknown method: \(method)")
