@@ -1,9 +1,9 @@
 import Foundation
 import Logging
 
-/// Unix domain socket server.
-/// Blocking accept()/read()/write() run on dedicated DispatchQueue threads —
-/// NOT on Swift's cooperative thread pool (which blocking calls would starve).
+/// Bidirectional Unix socket server.
+/// Each connection supports both request-response RPC and push streaming.
+/// Concurrent read+write via separate DispatchQueues per connection.
 public final class SocketServer: Sendable {
     public static let defaultSocketPath: String = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -13,21 +13,25 @@ public final class SocketServer: Sendable {
     }()
 
     private let socketPath: String
-    private let messageHandler: @Sendable (Data) async throws -> Data
-    private let logger = Logger(label: "macctl.socket-server")
+    /// RPC handler: request bytes → response bytes (one-shot)
+    private let rpcHandler: @Sendable (Data) async throws -> Data
+    /// Subscribe handler: returns AsyncStream of length-prefixed event frames
+    private let subscribeHandler: @Sendable (String, [String: JSONValue]) -> AsyncStream<Data>
     private let acceptQueue = DispatchQueue(label: "macctl.accept", qos: .userInteractive)
-    private let clientQueue = DispatchQueue(label: "macctl.clients", qos: .userInteractive,
-                                            attributes: .concurrent)
+    private let logger = Logger(label: "macctl.socket-server")
 
-    public init(socketPath: String = SocketServer.defaultSocketPath,
-                handler: @escaping @Sendable (Data) async throws -> Data) {
+    public init(
+        socketPath: String = SocketServer.defaultSocketPath,
+        rpc: @escaping @Sendable (Data) async throws -> Data,
+        subscribe: @escaping @Sendable (String, [String: JSONValue]) -> AsyncStream<Data>
+    ) {
         self.socketPath = socketPath
-        self.messageHandler = handler
+        self.rpcHandler  = rpc
+        self.subscribeHandler = subscribe
     }
 
     public func start() throws {
         try? FileManager.default.removeItem(atPath: socketPath)
-
         let serverFD = socket(AF_UNIX, SOCK_STREAM, 0)
         guard serverFD >= 0 else { throw SocketError.createFailed(errno) }
 
@@ -35,9 +39,7 @@ public final class SocketServer: Sendable {
         addr.sun_family = sa_family_t(AF_UNIX)
         withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
             socketPath.withCString { cStr in
-                ptr.withMemoryRebound(to: CChar.self, capacity: 104) {
-                    _ = strlcpy($0, cStr, 104)
-                }
+                ptr.withMemoryRebound(to: CChar.self, capacity: 104) { _ = strlcpy($0, cStr, 104) }
             }
         }
         let bindResult = withUnsafePointer(to: &addr) { ptr in
@@ -47,56 +49,128 @@ public final class SocketServer: Sendable {
         }
         guard bindResult == 0 else { close(serverFD); throw SocketError.bindFailed(errno) }
         guard listen(serverFD, 128) == 0 else { close(serverFD); throw SocketError.listenFailed(errno) }
-
         logger.info("Listening on \(socketPath)")
 
-        // Accept loop on dedicated thread — never touches Swift cooperative pool
         acceptQueue.async { [weak self] in
-            guard let self else { return }
             while true {
                 let clientFD = accept(serverFD, nil, nil)
                 guard clientFD >= 0 else { continue }
-                self.clientQueue.async { self.handleClient(fd: clientFD) }
+                self?.handleConnection(fd: clientFD)
             }
         }
     }
 
-    private func handleClient(fd: Int32) {
-        defer { close(fd) }
-        var buf = Data()
-        var chunk = [UInt8](repeating: 0, count: 65536)
+    private func handleConnection(fd: Int32) {
+        let writeQueue = DispatchQueue(label: "macctl.write.\(fd)", qos: .userInteractive)
+        let subs = ConnectionSubscriptions()
+        let rpc = rpcHandler
+        let sub = subscribeHandler
 
-        while true {
-            let n = read(fd, &chunk, chunk.count)
-            guard n > 0 else { return }
-            buf.append(contentsOf: chunk.prefix(n))
+        // Serialized write: multiple tasks can push frames without interleaving
+        let sendFrame: @Sendable (Data) -> Void = { data in
+            writeQueue.async {
+                _ = data.withUnsafeBytes { write(fd, $0.baseAddress!, $0.count) }
+            }
+        }
 
-            guard let message = try? MessageFraming.parse(&buf) else { continue }
+        DispatchQueue.global(qos: .userInteractive).async {
+            defer { close(fd); subs.cancelAll() }
+            var buf = Data()
+            var chunk = [UInt8](repeating: 0, count: 65536)
+            while true {
+                let n = read(fd, &chunk, chunk.count)
+                guard n > 0 else { return }
+                buf.append(contentsOf: chunk.prefix(n))
+                while let msg = try? MessageFraming.parse(&buf) {
+                    Self.handleMessage(msg, fd: fd, sendFrame: sendFrame,
+                                       subs: subs, rpc: rpc, sub: sub)
+                }
+            }
+        }
+    }
 
-            // Bridge blocking DispatchQueue thread → async handler → back.
-            // ResponseBox is protected by semaphore — single-writer, safe.
-            let box = ResponseBox()
+    private static func handleMessage(
+        _ data: Data,
+        fd: Int32,
+        sendFrame: @escaping @Sendable (Data) -> Void,
+        subs: ConnectionSubscriptions,
+        rpc: @escaping @Sendable (Data) async throws -> Data,
+        sub: @escaping @Sendable (String, [String: JSONValue]) -> AsyncStream<Data>
+    ) {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        let op = raw["op"] as? String ?? "rpc"
+
+        switch op {
+        case "subscribe":
+            guard let topic = raw["topic"] as? String,
+                  let subID = raw["subID"]  as? String else { return }
+            let params = parseParams(raw["params"])
+            let stream = sub(topic, params)
+            let task = Task.detached {
+                for await frame in stream {
+                    sendFrame(frame)
+                    if Task.isCancelled { break }
+                }
+            }
+            subs.add(subID: subID, task: task)
+
+        case "unsubscribe":
+            guard let subID = raw["subID"] as? String else { return }
+            subs.cancel(subID: subID)
+            let done = frame(["subID": subID, "type": "done"])
+            sendFrame(done)
+
+        default:
+            // Regular RPC — response box bridges async → DispatchQueue
+            let box = FrameBox()
             let sem = DispatchSemaphore(value: 0)
-            let captured = message
-            let handler = self.messageHandler
             Task.detached {
-                do { box.value = try await handler(captured) }
-                catch { box.value = Data(#"{"success":false,"error":{"code":5}}"#.utf8) }
+                do { box.data = try await rpc(data) }
+                catch { box.data = Data(#"{"success":false,"error":{"code":5,"message":"internal error"}}"#.utf8) }
                 sem.signal()
             }
-            sem.wait()
-            let response = box.value
-
-            let framed = MessageFraming.frame(response)
-            _ = framed.withUnsafeBytes { ptr in write(fd, ptr.baseAddress!, ptr.count) }
+            DispatchQueue.global(qos: .userInteractive).async {
+                sem.wait()
+                sendFrame(box.data)
+            }
         }
+    }
+
+    private static func parseParams(_ raw: Any?) -> [String: JSONValue] {
+        guard let dict = raw as? [String: Any] else { return [:] }
+        return dict.compactMapValues { val -> JSONValue? in
+            if let s = val as? String  { return .string(s) }
+            if let i = val as? Int     { return .int(i) }
+            if let d = val as? Double  { return .double(d) }
+            if let b = val as? Bool    { return .bool(b) }
+            return nil
+        }
+    }
+
+    private static func frame(_ dict: [String: String]) -> Data {
+        let data = (try? JSONEncoder().encode(dict)) ?? Data()
+        return MessageFraming.frame(data)
     }
 }
 
-/// Mutable container that is @unchecked Sendable — safe because access is
-/// serialized by the DispatchSemaphore in handleClient.
-private final class ResponseBox: @unchecked Sendable {
-    var value: Data = Data()
+// MARK: - Supporting types
+
+private final class ConnectionSubscriptions: @unchecked Sendable {
+    private var tasks: [String: Task<Void, Never>] = [:]
+    private let lock = NSLock()
+    func add(subID: String, task: Task<Void, Never>) {
+        lock.withLock { tasks[subID] = task }
+    }
+    func cancel(subID: String) {
+        lock.withLock { tasks[subID]?.cancel(); tasks.removeValue(forKey: subID) }
+    }
+    func cancelAll() {
+        lock.withLock { tasks.values.forEach { $0.cancel() }; tasks.removeAll() }
+    }
+}
+
+private final class FrameBox: @unchecked Sendable {
+    var data: Data = Data()
 }
 
 public enum SocketError: Error, Sendable {
