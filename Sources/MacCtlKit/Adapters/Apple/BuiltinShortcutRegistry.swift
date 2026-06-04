@@ -176,6 +176,355 @@ public enum BuiltinShortcutRegistry {
             "close":        KeyCombo("w", .maskCommand),
             "hide":         KeyCombo("h", .maskCommand),
         ],
+
+        // MARK: Contacts
+        "com.apple.AddressBook": [
+            "new-contact":  KeyCombo("n", .maskCommand),
+            "new-group":    KeyCombo("n", [.maskCommand, .maskShift]),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "edit":         KeyCombo("l", .maskCommand),
+        ],
+
+        // MARK: Photos
+        "com.apple.Photos": [
+            "new-album":    KeyCombo("n", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "duplicate":    KeyCombo("d", .maskCommand),
+            "get-info":     KeyCombo("i", .maskCommand),
+            "export":       KeyCombo("e", [.maskCommand, .maskShift]),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Music
+        "com.apple.Music": [
+            "play-pause":   KeyCombo(" "),
+            "next":         KeyCombo("\u{F703}", .maskCommand),
+            "previous":     KeyCombo("\u{F702}", .maskCommand),
+            "vol-up":       KeyCombo("\u{F700}", .maskCommand),
+            "vol-down":     KeyCombo("\u{F701}", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "add-library":  KeyCombo("d", .maskCommand),
+            "show-library": KeyCombo("l", .maskCommand),
+        ],
+
+        // MARK: TV
+        "com.apple.TV": [
+            "play-pause":   KeyCombo(" "),
+            "find":         KeyCombo("f", .maskCommand),
+            "next-chapter": KeyCombo("\u{F703}", .maskCommand),
+            "prev-chapter": KeyCombo("\u{F702}", .maskCommand),
+        ],
+
+        // MARK: Podcasts
+        "com.apple.podcasts": [
+            "play-pause":   KeyCombo(" "),
+            "find":         KeyCombo("f", .maskCommand),
+            "refresh":      KeyCombo("r", .maskCommand),
+        ],
+
+        // MARK: Books
+        "com.apple.iBooksX": [
+            "find":         KeyCombo("f", .maskCommand),
+            "new-window":   KeyCombo("n", .maskCommand),
+        ],
+
+        // MARK: Messages
+        "com.apple.MobileSMS": [
+            "new-message":  KeyCombo("n", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "archive":      KeyCombo("a", [.maskCommand, .maskControl]),
+        ],
+
+        // MARK: FaceTime
+        "com.apple.FaceTime": [
+            "new-call":     KeyCombo("n", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Maps
+        "com.apple.Maps": [
+            "find":         KeyCombo("f", .maskCommand),
+            "directions":   KeyCombo("d", .maskCommand),
+        ],
+
+        // MARK: News
+        "com.apple.News": [
+            "find":         KeyCombo("f", .maskCommand),
+            "reload":       KeyCombo("r", .maskCommand),
+        ],
+
+        // MARK: Stocks
+        "com.apple.Stocks": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Home
+        "com.apple.Home": [
+            "new-home":     KeyCombo("n", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Voice Memos
+        "com.apple.VoiceMemos": [
+            "record":       KeyCombo("r", .maskCommand),
+            "play-pause":   KeyCombo(" "),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+        ],
+
+        // MARK: Weather
+        "com.apple.weather": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Clock
+        "com.apple.clock": [
+            "new-alarm":    KeyCombo("n", .maskCommand),
+        ],
+
+        // MARK: Freeform
+        "com.apple.Freeform": [
+            "new-board":    KeyCombo("n", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "zoom-in":      KeyCombo("=", .maskCommand),
+            "zoom-out":     KeyCombo("-", .maskCommand),
+        ],
+
+        // MARK: Shortcuts
+        "com.apple.shortcuts": [
+            "new":          KeyCombo("n", .maskCommand),
+            "run":          KeyCombo("r", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+        ],
+
+        // MARK: App Store
+        "com.apple.AppStore": [
+            "find":         KeyCombo("f", .maskCommand),
+            "reload":       KeyCombo("r", .maskCommand),
+        ],
+
+        // MARK: Calculator
+        "com.apple.Calculator": [
+            "basic":        KeyCombo("1", .maskCommand),
+            "scientific":   KeyCombo("2", .maskCommand),
+            "programmer":   KeyCombo("3", .maskCommand),
+            "clear":        KeyCombo("a", .maskCommand),
+        ],
+
+        // MARK: Preview
+        "com.apple.Preview": [
+            "new":          KeyCombo("n", .maskCommand),
+            "open":         KeyCombo("o", .maskCommand),
+            "save":         KeyCombo("s", .maskCommand),
+            "save-as":      KeyCombo("s", [.maskCommand, .maskShift]),
+            "find":         KeyCombo("f", .maskCommand),
+            "zoom-in":      KeyCombo("=", .maskCommand),
+            "zoom-out":     KeyCombo("-", .maskCommand),
+            "actual-size":  KeyCombo("0", .maskCommand),
+        ],
+
+        // MARK: QuickTime Player
+        "com.apple.QuickTimePlayerX": [
+            "new-movie":    KeyCombo("n", .maskCommand),
+            "new-screen":   KeyCombo("n", [.maskCommand, .maskControl]),
+            "play-pause":   KeyCombo(" "),
+            "open":         KeyCombo("o", .maskCommand),
+            "save":         KeyCombo("s", .maskCommand),
+            "trim":         KeyCombo("t", .maskCommand),
+        ],
+
+        // MARK: Stickies
+        "com.apple.Stickies": [
+            "new-note":     KeyCombo("n", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "float":        KeyCombo("f", [.maskCommand, .maskShift]),
+            "collapse":     KeyCombo("m", .maskCommand),
+        ],
+
+        // MARK: Font Book
+        "com.apple.FontBook": [
+            "add":          KeyCombo("o", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Dictionary
+        "com.apple.Dictionary": [
+            "find":         KeyCombo("f", .maskCommand),
+            "new-window":   KeyCombo("n", .maskCommand),
+        ],
+
+        // MARK: Pages
+        "com.apple.iWork.Pages": [
+            "new":          KeyCombo("n", .maskCommand),
+            "save":         KeyCombo("s", .maskCommand),
+            "bold":         KeyCombo("b", .maskCommand),
+            "italic":       KeyCombo("i", .maskCommand),
+            "underline":    KeyCombo("u", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "insert-link":  KeyCombo("k", .maskCommand),
+            "zoom-in":      KeyCombo("=", .maskCommand),
+            "zoom-out":     KeyCombo("-", .maskCommand),
+        ],
+
+        // MARK: Numbers
+        "com.apple.iWork.Numbers": [
+            "new":          KeyCombo("n", .maskCommand),
+            "save":         KeyCombo("s", .maskCommand),
+            "bold":         KeyCombo("b", .maskCommand),
+            "italic":       KeyCombo("i", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "zoom-in":      KeyCombo("=", .maskCommand),
+            "zoom-out":     KeyCombo("-", .maskCommand),
+        ],
+
+        // MARK: Keynote
+        "com.apple.iWork.Keynote": [
+            "new":          KeyCombo("n", .maskCommand),
+            "save":         KeyCombo("s", .maskCommand),
+            "play":         KeyCombo("p", .maskCommand),
+            "bold":         KeyCombo("b", .maskCommand),
+            "italic":       KeyCombo("i", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+            "zoom-in":      KeyCombo("=", .maskCommand),
+            "zoom-out":     KeyCombo("-", .maskCommand),
+        ],
+
+        // MARK: Activity Monitor
+        "com.apple.ActivityMonitor": [
+            "find":         KeyCombo("f", .maskCommand),
+            "quit-process": KeyCombo("q", .maskCommand),
+            "inspect":      KeyCombo(" "),
+        ],
+
+        // MARK: Console
+        "com.apple.Console": [
+            "find":         KeyCombo("f", .maskCommand),
+            "clear":        KeyCombo("k", .maskCommand),
+            "reload":       KeyCombo("r", .maskCommand),
+        ],
+
+        // MARK: Disk Utility
+        "com.apple.DiskUtility": [
+            "new-image":    KeyCombo("n", .maskCommand),
+            "get-info":     KeyCombo("i", .maskCommand),
+            "eject":        KeyCombo("e", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Script Editor
+        "com.apple.ScriptEditor2": [
+            "new":          KeyCombo("n", .maskCommand),
+            "run":          KeyCombo("r", .maskCommand),
+            "compile":      KeyCombo("k", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Automator
+        "com.apple.Automator": [
+            "new":          KeyCombo("n", .maskCommand),
+            "run":          KeyCombo("r", .maskCommand),
+            "stop":         KeyCombo(".", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Image Capture
+        "com.apple.Image_Capture": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Digital Color Meter
+        "com.apple.DigitalColorMeter": [
+            "lock":         KeyCombo("l", .maskCommand),
+            "copy-as-text": KeyCombo("c", [.maskCommand, .maskShift]),
+        ],
+
+        // MARK: Keychain Access
+        "com.apple.keychainaccess": [
+            "find":         KeyCombo("f", .maskCommand),
+            "new-password": KeyCombo("n", .maskCommand),
+            "delete":       KeyCombo("\u{7F}", .maskCommand),
+            "lock-all":     KeyCombo("l", .maskCommand),
+        ],
+
+        // MARK: Audio MIDI Setup
+        "com.apple.audio.AudioMIDISetup": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Photo Booth
+        "com.apple.Photo-Booth": [
+            "take-photo":   KeyCombo("\r"),
+            "effects":      KeyCombo("e", .maskCommand),
+        ],
+
+        // MARK: Find My
+        "com.apple.findmy": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: iMovie
+        "com.apple.iMovieApp": [
+            "play-pause":   KeyCombo(" "),
+            "in-point":     KeyCombo("i"),
+            "out-point":    KeyCombo("o"),
+            "export":       KeyCombo("e", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: GarageBand
+        "com.apple.GarageBand": [
+            "play-pause":   KeyCombo(" "),
+            "record":       KeyCombo("r"),
+            "undo":         KeyCombo("z", .maskCommand),
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Screen Sharing
+        "com.apple.ScreenSharing": [
+            "fullscreen":   KeyCombo("f", [.maskCommand, .maskControl]),
+        ],
+
+        // MARK: iPhone Mirroring (macOS 15+)
+        "com.apple.ScreenContinuity": [
+            "connect":      KeyCombo("k", [.maskCommand, .maskShift]),
+            "fullscreen":   KeyCombo("f", [.maskCommand, .maskControl]),
+            "actual-size":  KeyCombo("0", .maskCommand),
+        ],
+
+        // MARK: AirPort Utility
+        "com.apple.AirPortUtility": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Wireless Diagnostics
+        "com.apple.WirelessDiagnostics": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Directory Utility
+        "com.apple.DirectoryUtility": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: ColorSync Utility
+        "com.apple.ColorSyncUtility": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Bluetooth File Exchange
+        "com.apple.BluetoothFileExchange": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
+
+        // MARK: Migration Assistant — no useful shortcuts
+        "com.apple.MigrationAssistant": [:],
+
+        // MARK: System Information
+        "com.apple.SystemProfiler": [
+            "find":         KeyCombo("f", .maskCommand),
+        ],
     ]
     // swiftformat:enable all
 }
