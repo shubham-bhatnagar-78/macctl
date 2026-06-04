@@ -144,6 +144,15 @@ func dispatch(
         guard let pid = await lifecycle.pid(for: bid) else {
             throw RPCError.appNotRunning(bid)
         }
+        // Fast path: click by element ID from a previous `see` call (0ms search)
+        if case .string(let eid) = params["elementId"] {
+            guard await ax.elementExists(id: eid) else {
+                throw RPCError.elementNotFound(eid, app: "\(bid) (cache miss — run `see` first)")
+            }
+            let r = try await RetryEngine.run(attempts: 2) { try await ax.click(id: eid) }
+            return layer("ax-press-id", ["elementId": .string(eid), "_retries": .int(r.attempts - 1)])
+        }
+
         if case .string(let query) = params["query"] {
             let waitTimeout = Duration.seconds((params["timeout"]?.doubleValue ?? 3.0))
             // WaitEngine: polls until element appears (handles loading UIs), max 3s
@@ -153,7 +162,6 @@ func dispatch(
             } catch {
                 throw RPCError.elementNotFound(query, app: bid)
             }
-            // RetryEngine: retry click (press → click → focus fallback inside ax.click)
             let pressResult = try await RetryEngine.run(attempts: 2) {
                 try await ax.click(id: eid)
             }
@@ -164,7 +172,7 @@ func dispatch(
             try await input.click(at: CGPoint(x: x, y: y), pid: pid)
             return layer("input-click")
         }
-        throw RPCError.operationFailed("click requires 'query' or 'x'+'y'")
+        throw RPCError.operationFailed("click requires 'query', 'elementId', or 'x'+'y'")
 
     // MARK: - see
 
