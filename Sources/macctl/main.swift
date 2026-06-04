@@ -24,6 +24,7 @@ struct MacCtl: ParsableCommand {
             NetworkCommand.self,
             DefaultsCommand.self,
             FileCommand.self,
+            WatchCommand.self,
         ],
     )
 }
