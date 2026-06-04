@@ -43,13 +43,11 @@ public actor CaptureActor {
 
     @available(macOS 14, *)
     private func screenshotSCK(bundleID: String?, path: URL) async throws -> URL {
-        let content: SCShareableContent
-        if let cached = cachedContent { content = cached }
-        else {
-            content = try await SCShareableContent.excludingDesktopWindows(
-                false, onScreenWindowsOnly: true)
-            cachedContent = content
-        }
+        // Always refresh — SCShareableContent.excludingDesktopWindows is fast (~2ms)
+        // and must reflect current window set. Stale cache causes wrong window captures.
+        let content = try await SCShareableContent.excludingDesktopWindows(
+            false, onScreenWindowsOnly: true)
+        cachedContent = content
 
         let filter: SCContentFilter
         if let bundleID,

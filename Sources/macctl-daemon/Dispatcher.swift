@@ -93,18 +93,20 @@ func dispatch(
         guard let pid = await lifecycle.pid(for: bid) else {
             throw RPCError.appNotRunning(bid)
         }
-        // Smart routing with retry: AX setValue (1-2ms) → paste (3-5ms) → CGEvent (slow)
+        // Smart routing: AX setValue (1-2ms) → paste (12ms) → CGEvent (slow)
         if case .string(let query) = params["query"] {
-            let eid = try? await RetryEngine.run {
+            let result = try? await RetryEngine.run(attempts: 3) {
                 let axApp = await ax.appElement(pid: pid)
                 guard let id = await ax.findElementID(query: query, in: axApp) else {
                     throw RPCError.elementNotFound(query, app: bid)
                 }
                 return id
             }
-            if let eid, await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
+            if let eid = result?.value,
+               await ax.isSettable(id: eid, attribute: kAXValueAttribute) {
                 try await ax.setValue(text, forID: eid)
-                return layer("ax-setvalue", ["chars": .int(text.count)])
+                return layer("ax-setvalue", ["chars": .int(text.count),
+                                             "_retries": .int((result?.attempts ?? 1) - 1)])
             }
         }
         // Paste is faster than CGEvent for any text ≥2 chars and has O(1) length scaling
@@ -134,10 +136,11 @@ func dispatch(
                 throw RPCError.elementNotFound(query, app: bid)
             }
             // RetryEngine: retry the press in case of transient AX failure
-            try await RetryEngine.run(attempts: 2) {
+            let pressResult = try await RetryEngine.run(attempts: 2) {
                 try await ax.press(id: eid)
             }
-            return layer("ax-press", ["elementId": .string(eid)])
+            return layer("ax-press", ["elementId": .string(eid),
+                                      "_retries": .int(pressResult.attempts - 1)])
         }
         if case .double(let x) = params["x"], case .double(let y) = params["y"] {
             try await input.click(at: CGPoint(x: x, y: y), pid: pid)

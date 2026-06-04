@@ -46,8 +46,10 @@ let server = SocketServer { data in
         )
         let durationMs = Date().timeIntervalSince(start) * 1000
         let layer = resultData["_layer"]?.stringValue ?? "unknown"
+        let retries = resultData["_retries"]?.intValue ?? 0
         var cleanData = resultData
         cleanData.removeValue(forKey: "_layer")
+        cleanData.removeValue(forKey: "_retries")
         let payload: [String: JSONValue] = [
             "jsonrpc": .string("2.0"),
             "id": .string(request.id),
@@ -58,7 +60,7 @@ let server = SocketServer { data in
                 "layer": .string(layer),
                 "sessionID": .string(sessionID),
                 "daemonVersion": .string("1.0.0"),
-                "retries": .int(0),
+                "retries": .int(retries),
             ])
         ]
         return try JSONEncoder().encode(payload)
