@@ -45,6 +45,36 @@ macctl spotlight search "invoice 2024"
 macctl window tile-left --id 12345
 ```
 
+## Feature Parity
+
+| Feature | macctl | Hammerspoon | Peekaboo | cliclick | Keyboard Maestro |
+|---|---|---|---|---|---|
+| Click / type / key | ✅ | ✅ | ✅ | ✅ | ✅ |
+| See UI elements (AX tree) | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Screenshot | ✅ | ✅ | ✅ | ❌ | ✅ |
+| App launch/quit | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Window move/resize/tile | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Process list/kill | ✅ | ✅ | ❌ | ❌ | ❌ |
+| System volume/brightness/WiFi/BT | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Clipboard (all types) | ✅ | ✅ | ❌ | ❌ | ✅ |
+| File read/write/move/copy | ✅ | ✅ | ❌ | ❌ | ✅ |
+| iCloud Drive (eviction-aware) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| File tags (xattr, 0.1ms) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Calendar + Reminders (EventKit) | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Contacts (ContactsKit) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Notes (AppleScript) | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Spotlight search | ✅ | ✅ | ❌ | ❌ | ✅ |
+| NSUserDefaults read/write | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Screen lock / caffeinate | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Keyboard input source | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Live file watching (kqueue) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| App lifecycle stream | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Shell execution | ✅ | ✅ | ❌ | ❌ | ✅ |
+| MCP server (LLM tool use) | ✅ 35 tools | ❌ | ✅ limited | ❌ | ❌ |
+| Builtin shortcut registry (59 apps) | ✅ O(1) | ❌ | ❌ | ❌ | ❌ |
+| Swift 6 strict concurrency | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Open source | ✅ AGPL | ✅ MIT | ✅ MIT | ✅ MIT | ❌ paid |
+
 ---
 
 ## Performance
