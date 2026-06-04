@@ -102,7 +102,7 @@ macctl window tile-left --id 12345
 
 ```bash
 # Clone and build
-git clone https://github.com/YOUR_USERNAME/macctl
+git clone https://github.com/shubham-bhatnagar-78/macctl
 cd macctl
 
 # Build Swift daemon (the engine)
@@ -121,8 +121,8 @@ sudo cp .build/release/macctl-daemon /usr/local/bin/
 ### Start the daemon
 
 ```bash
-# Install as launchd service (auto-starts on login)
-launchctl load ~/Library/LaunchAgents/com.macctl.daemon.plist
+# Install as launchd service (creates plist + auto-starts on login)
+macctl install
 
 # Or run manually
 macctl-daemon &
@@ -250,7 +250,7 @@ Misc:
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Clients                           │
-│  macctl CLI   macctl-mcp (MCP)   Python/Node SDK   │
+│         macctl CLI        macctl-mcp (MCP)          │
 └──────────┬──────────────┬───────────────┬──────────┘
            │              │               │
            └──────────────┴───────────────┘
@@ -314,7 +314,7 @@ BuiltinShortcutRegistry covers all 59 Apple-shipped apps. O(1) dictionary lookup
 ## Building from Source
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/macctl
+git clone https://github.com/shubham-bhatnagar-78/macctl
 cd macctl
 
 # Swift daemon (the engine — all 21 actors, system APIs)
@@ -329,19 +329,6 @@ clang -O2 -o .build/macctl-mcp Sources/macctl-c/mcp.c
 swift test                # 122 tests
 ```
 
-### Architecture
-
-```
-macctl (C, 52KB)          macctl-mcp (C, 68KB)
-     │ Unix socket JSON-RPC       │
-     └──────────────┬─────────────┘
-                    │
-          macctl-daemon (Swift, 4MB)
-          21 actors: AX, Input, Keyboard,
-          AppLifecycle, System, File, EventKit,
-          Contacts, Notes, Window, Process,
-          Spotlight, Screen, Clipboard, Network...
-```
 
 ---
 
