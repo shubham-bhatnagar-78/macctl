@@ -6,12 +6,17 @@ LoggingSystem.bootstrap(StreamLogHandler.standardOutput)
 let logger = Logger(label: "macctl.daemon")
 
 // Actor instances — one per subsystem, shared for daemon lifetime
-let daemonLifecycle = DaemonLifecycle()
-let axActor         = AXActor()
-let inputActor      = InputActor()
-let keyboardActor   = KeyboardActor()
-let lifecycleActor  = AppLifecycleActor()
-let captureActor    = CaptureActor()
+let daemonLifecycle  = DaemonLifecycle()
+let axActor          = AXActor()
+let inputActor       = InputActor()
+let keyboardActor    = KeyboardActor()
+let lifecycleActor   = AppLifecycleActor()
+let captureActor     = CaptureActor()
+let systemStateActor = SystemStateActor()
+let powerActor       = PowerActor()
+let clipboardActor   = ClipboardActor()
+let networkActor     = NetworkActor()
+let defaultsActor    = DefaultsActor()
 
 await daemonLifecycle.start()
 
@@ -42,6 +47,8 @@ let server = SocketServer { data in
             params: request.params ?? [:],
             ax: axActor, input: inputActor, keyboard: keyboardActor,
             lifecycle: lifecycleActor, capture: captureActor,
+            systemState: systemStateActor, power: powerActor,
+            clipboard: clipboardActor, network: networkActor, defaults: defaultsActor,
             sessionID: sessionID
         )
         let durationMs = Date().timeIntervalSince(start) * 1000

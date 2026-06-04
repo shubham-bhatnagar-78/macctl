@@ -12,6 +12,11 @@ func dispatch(
     keyboard: KeyboardActor,
     lifecycle: AppLifecycleActor,
     capture: CaptureActor,
+    systemState: SystemStateActor,
+    power: PowerActor,
+    clipboard: ClipboardActor,
+    network: NetworkActor,
+    defaults: DefaultsActor,
     sessionID: String
 ) async throws -> [String: JSONValue] {
 
@@ -188,6 +193,174 @@ func dispatch(
         let bundleID: String? = { if case .string(let b) = params["bundleID"] { return b }; return nil }()
         let path = try await capture.screenshot(app: bundleID)
         return layer("screencapturekit", ["path": .string(path.path)])
+
+    // MARK: - system.*
+
+    case "system.status":
+        let s = await systemState.status()
+        return layer("native-api", [
+            "volume": .double(Double(s.volume)),
+            "isMuted": .bool(s.isMuted),
+            "brightness": .double(Double(s.brightness)),
+            "wifiEnabled": .bool(s.wifiEnabled),
+            "wifiSSID": s.wifiSSID.map { .string($0) } ?? .null,
+            "bluetoothEnabled": .bool(s.bluetoothEnabled),
+        ])
+
+    case "system.volume":
+        if case .double(let v) = params["value"] {
+            await systemState.setVolume(Float(v))
+            return layer("native-api", ["volume": .double(v)])
+        }
+        return layer("native-api", ["volume": .double(Double(await systemState.volume()))])
+
+    case "system.mute":
+        let muted = params["muted"] == .bool(true)
+        await systemState.setMuted(muted)
+        return layer("native-api", ["muted": .bool(muted)])
+
+    case "system.brightness":
+        if case .double(let v) = params["value"] {
+            await systemState.setBrightness(Float(v))
+            return layer("native-api", ["brightness": .double(v)])
+        }
+        return layer("native-api", ["brightness": .double(Double(await systemState.brightness()))])
+
+    case "system.wifi":
+        if case .bool(let enabled) = params["enabled"] {
+            try await systemState.setWifiEnabled(enabled)
+            return layer("native-api", ["wifiEnabled": .bool(enabled)])
+        }
+        return layer("native-api", [
+            "wifiEnabled": .bool(await systemState.wifiEnabled()),
+            "ssid": await systemState.wifiSSID().map { .string($0) } ?? .null,
+        ])
+
+    case "system.bluetooth":
+        if case .bool(let enabled) = params["enabled"] {
+            await systemState.setBluetoothEnabled(enabled)
+            return layer("native-api", ["bluetoothEnabled": .bool(enabled)])
+        }
+        return layer("native-api", ["bluetoothEnabled": .bool(await systemState.bluetoothEnabled())])
+
+    // MARK: - power.*
+
+    case "power.prevent-sleep":
+        let reason = params["reason"]?.stringValue ?? "macctl automation"
+        let token = try await power.preventSleep(reason: reason)
+        return layer("native-api", ["token": .int(Int(token))])
+
+    case "power.release-sleep":
+        if case .int(let t) = params["token"] { await power.releaseSleep(token: SleepToken(t)) }
+        return layer("native-api")
+
+    case "power.lock-screen":
+        await power.lockScreen()
+        return layer("native-api")
+
+    case "power.sleep":
+        try await power.systemSleep()
+        return layer("native-api")
+
+    case "power.status":
+        return layer("native-api", ["activePreventions": .int(await power.activePreventionCount())])
+
+    // MARK: - clipboard.*
+
+    case "clipboard.read":
+        let content = await clipboard.read()
+        switch content {
+        case .text(let s):   return layer("native-api", ["type": .string("text"), "value": .string(s)])
+        case .html(let h):   return layer("native-api", ["type": .string("html"), "value": .string(h)])
+        case .files(let us): return layer("native-api", ["type": .string("files"),
+            "value": .array(us.map { .string($0.path) })])
+        case .rtf:           return layer("native-api", ["type": .string("rtf")])
+        case .image:         return layer("native-api", ["type": .string("image")])
+        case .color:         return layer("native-api", ["type": .string("color")])
+        case .empty:         return layer("native-api", ["type": .string("empty")])
+        }
+
+    case "clipboard.write":
+        if case .string(let text) = params["text"] {
+            await clipboard.writeText(text)
+            return layer("native-api", ["written": .string("text")])
+        }
+        if case .array(let paths) = params["files"] {
+            let urls = paths.compactMap { v -> URL? in
+                guard case .string(let s) = v else { return nil }
+                return URL(fileURLWithPath: s)
+            }
+            await clipboard.writeFiles(urls)
+            return layer("native-api", ["written": .string("files")])
+        }
+        throw RPCError.operationFailed("clipboard.write requires 'text' or 'files'")
+
+    case "clipboard.clear":
+        await clipboard.clear()
+        return layer("native-api")
+
+    // MARK: - network.*
+
+    case "network.status":
+        let s = await network.status()
+        return layer("native-api", [
+            "isConnected":   .bool(s.isConnected),
+            "isExpensive":   .bool(s.isExpensive),
+            "isConstrained": .bool(s.isConstrained),
+            "interfaces":    .array(s.interfaces.map { .string($0) }),
+            "hasWifi":       .bool(s.hasWifi),
+            "hasCellular":   .bool(s.hasCellular),
+            "hasWired":      .bool(s.hasWired),
+            "hasVPN":        .bool(s.hasVPN),
+        ])
+
+    case "network.resolve":
+        guard case .string(let hostname) = params["hostname"] else {
+            throw RPCError.operationFailed("network.resolve requires 'hostname'")
+        }
+        let addresses = try await network.resolve(hostname: hostname)
+        return layer("native-api", [
+            "hostname":  .string(hostname),
+            "addresses": .array(addresses.map { .string($0) }),
+        ])
+
+    // MARK: - defaults.*
+
+    case "defaults.read":
+        guard case .string(let domain) = params["domain"],
+              case .string(let key)    = params["key"]
+        else { throw RPCError.operationFailed("defaults.read requires domain + key") }
+        // Try string first, then bool, then int
+        if let s = await defaults.readString(domain: domain, key: key) {
+            return layer("native-api", ["value": .string(s), "type": .string("string")])
+        }
+        if let b = await defaults.readBool(domain: domain, key: key) {
+            return layer("native-api", ["value": .bool(b), "type": .string("bool")])
+        }
+        if let i = await defaults.readInt(domain: domain, key: key) {
+            return layer("native-api", ["value": .int(i), "type": .string("int")])
+        }
+        return layer("native-api", ["value": .null, "type": .string("null")])
+
+    case "defaults.write":
+        guard case .string(let domain) = params["domain"],
+              case .string(let key)    = params["key"]
+        else { throw RPCError.operationFailed("defaults.write requires domain + key + value") }
+        switch params["value"] {
+        case .string(let s):  await defaults.write(domain: domain, key: key, stringValue: s)
+        case .bool(let b):    await defaults.write(domain: domain, key: key, boolValue: b)
+        case .int(let i):     await defaults.write(domain: domain, key: key, intValue: i)
+        case .double(let d):  await defaults.write(domain: domain, key: key, doubleValue: d)
+        default: throw RPCError.operationFailed("defaults.write: unsupported value type")
+        }
+        return layer("native-api", ["written": .bool(true)])
+
+    case "defaults.delete":
+        guard case .string(let domain) = params["domain"],
+              case .string(let key)    = params["key"]
+        else { throw RPCError.operationFailed("defaults.delete requires domain + key") }
+        await defaults.delete(domain: domain, key: key)
+        return layer("native-api")
 
     default:
         throw RPCError(code: 5, message: "Unknown method: \(method)")
