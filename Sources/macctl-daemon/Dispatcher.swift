@@ -22,6 +22,7 @@ func dispatch(
     file: FileActor,
     eventKit: EventKitActor,
     contacts: ContactsActor,
+    notes: NotesActor,
     window: WindowActor,
     process: ProcessActor,
     spotlight: SpotlightActor,
@@ -721,6 +722,65 @@ func dispatch(
             phone: params["phone"]?.stringValue,
             organization: params["organization"]?.stringValue)
         return layer("framework-api", ["id":.string(c.id),"fullName":.string(c.fullName)])
+
+
+    // MARK: - notes.*
+
+    case "notes.list":
+        let folder = params["folder"]?.stringValue
+        let limit  = params["limit"]?.intValue ?? 50
+        let notesList = await notes.list(folder: folder, limit: limit)
+        return layer("notes", [
+            "notes": .array(notesList.map { n in
+                .object(["id":.string(n.id),"name":.string(n.name),"folder":.string(n.folderName)])
+            }),
+            "count": .int(notesList.count),
+        ])
+
+    case "notes.get":
+        guard case .string(let nid) = params["id"] else {
+            throw RPCError.operationFailed("notes.get requires id")
+        }
+        guard let n = await notes.get(id: nid) else {
+            throw RPCError.operationFailed("Note not found: \(nid)")
+        }
+        return layer("notes", ["id":.string(n.id),"name":.string(n.name),"body":.string(n.body),"folder":.string(n.folderName)])
+
+    case "notes.find":
+        guard case .string(let nname) = params["name"] else {
+            throw RPCError.operationFailed("notes.find requires name")
+        }
+        if let n = await notes.find(name: nname) {
+            return layer("notes", ["found":.bool(true),"id":.string(n.id),"name":.string(n.name),"body":.string(n.body)])
+        }
+        return layer("notes", ["found":.bool(false)])
+
+    case "notes.create":
+        guard case .string(let title) = params["title"] else {
+            throw RPCError.operationFailed("notes.create requires title")
+        }
+        let noteBody   = params["body"]?.stringValue ?? ""
+        let noteFolder = params["folder"]?.stringValue
+        let n = try await notes.create(title: title, body: noteBody, folder: noteFolder)
+        return layer("notes", ["id":.string(n.id),"name":.string(n.name)])
+
+    case "notes.append":
+        guard case .string(let appendID) = params["id"],
+              case .string(let appendText) = params["text"]
+        else { throw RPCError.operationFailed("notes.append requires id + text") }
+        try await notes.append(id: appendID, text: appendText)
+        return layer("notes")
+
+    case "notes.delete":
+        guard case .string(let deleteID) = params["id"] else {
+            throw RPCError.operationFailed("notes.delete requires id")
+        }
+        try await notes.delete(id: deleteID)
+        return layer("notes")
+
+    case "notes.folders":
+        let folders = await notes.listFolders()
+        return layer("notes", ["folders": .array(folders.map { .string($0) })])
 
     // MARK: - window.*
 
