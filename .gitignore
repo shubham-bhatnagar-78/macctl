@@ -1,13 +1,11 @@
 .build/
 *.xcodeproj
 .DS_Store
+.env*
 .firecrawl/
-.build/
 
 # Research/scratch files
-.firecrawl/
 bttype*
 *.scratch
 *.tmp
-.DS_Store
 docs/superpowers/
